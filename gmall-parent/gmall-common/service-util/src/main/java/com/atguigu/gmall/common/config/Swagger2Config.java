@@ -20,8 +20,8 @@ import java.util.List;
 /**
  * Swagger2配置信息
  */
-@Configuration
-@EnableSwagger2
+//@Configuration
+//@EnableSwagger2
 public class Swagger2Config {
 
     @Bean

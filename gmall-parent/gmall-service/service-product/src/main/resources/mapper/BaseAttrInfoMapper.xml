@@ -3,13 +3,13 @@
 <mapper namespace="com.atguigu.gmall.product.mapper.BaseAttrInfoMapper">
 
     <!-- 自定义结果集:完成一对多配置 -->
-    <resultMap id="baseAttrInfoMap" type="com.atguigu.gmall.model.product.BaseAttrInfo" autoMapping="true">
+    <resultMap id="baseAttrInfoMap" type="com.atguigu.gmall.product.model.BaseAttrInfo" autoMapping="true">
         <!--映射主键ID-->
         <id property="id" column="id"/>
         <!--其他普通字段-->
         <!--<result/>-->
         <!--配置一对多-封装多方类型-->
-        <collection property="attrValueList" ofType="com.atguigu.gmall.model.product.BaseAttrValue" autoMapping="true">
+        <collection property="attrValueList" ofType="com.atguigu.gmall.product.model.BaseAttrValue" autoMapping="true">
             <!--通过attr_value_id进行封装成集合-->
             <id property="id" column="attr_value_id"></id>
         </collection>
