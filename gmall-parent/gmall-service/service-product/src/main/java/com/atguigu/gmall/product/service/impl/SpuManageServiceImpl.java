@@ -1,15 +1,10 @@
 package com.atguigu.gmall.product.service.impl;
 
-import com.atguigu.gmall.product.mapper.SpuImageMapper;
-import com.atguigu.gmall.product.mapper.SpuPosterMapper;
-import com.atguigu.gmall.product.mapper.SpuSaleAttrMapper;
-import com.atguigu.gmall.product.mapper.SpuSaleAttrValueMapper;
+
 import com.atguigu.gmall.product.model.*;
 import com.atguigu.gmall.product.service.*;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import org.checkerframework.checker.units.qual.A;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

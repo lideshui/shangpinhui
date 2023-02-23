@@ -5,10 +5,8 @@ import com.atguigu.gmall.common.result.Result;
 import com.atguigu.gmall.product.model.BaseCategoryTrademark;
 import com.atguigu.gmall.product.model.BaseTrademark;
 import com.atguigu.gmall.product.model.CategoryTrademarkVo;
-import com.baomidou.mybatisplus.extension.api.R;
 import io.swagger.annotations.Api;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 import com.atguigu.gmall.product.service.BaseCategoryTrademarkService;
 
