@@ -100,7 +100,8 @@ public class CodeGenerator {
         mpg.setTemplate(templateConfig);
 
         //TODO 根据需要来设置！！！例如：禁用模版的方式禁止生成实体类⚠️
-        templateConfig.disable(TemplateType.ENTITY, TemplateType.CONTROLLER);
+        //TemplateType.CONTROLLER
+        templateConfig.disable(TemplateType.ENTITY,TemplateType.CONTROLLER);
         // 策略配置
         StrategyConfig strategy = new StrategyConfig();
         strategy.setSuperEntityClass(BaseEntity.class);
