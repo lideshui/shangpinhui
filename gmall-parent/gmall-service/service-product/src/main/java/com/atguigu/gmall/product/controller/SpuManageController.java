@@ -2,6 +2,7 @@ package com.atguigu.gmall.product.controller;
 
 import com.atguigu.gmall.common.result.Result;
 import com.atguigu.gmall.product.model.BaseSaleAttr;
+import com.atguigu.gmall.product.model.SkuInfo;
 import com.atguigu.gmall.product.model.SpuInfo;
 import com.atguigu.gmall.product.service.SpuInfoService;
 import com.atguigu.gmall.product.service.SpuManageService;
@@ -47,7 +48,5 @@ public class SpuManageController {
         spuManageService.saveSpuInfo(spuInfo);
         return Result.ok();
     }
-
-
 
 }

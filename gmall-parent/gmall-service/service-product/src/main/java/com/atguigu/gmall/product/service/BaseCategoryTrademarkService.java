@@ -7,11 +7,6 @@ import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.util.List;
 
-/**
- * 分类品牌中间表 业务接口类
- * @author atguigu
- * @since 2023-02-22
- */
 public interface BaseCategoryTrademarkService extends IService<BaseCategoryTrademark> {
     //查询分类下关联的品牌列表
     List<BaseTrademark> findTrademarkList(Long category3Id);
