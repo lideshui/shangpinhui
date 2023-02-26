@@ -1,12 +1,10 @@
 package com.atguigu.gmall.product.service;
 
 
-import com.atguigu.gmall.product.model.SkuInfo;
-import com.atguigu.gmall.product.model.SpuImage;
-import com.atguigu.gmall.product.model.SpuInfo;
-import com.atguigu.gmall.product.model.SpuSaleAttr;
+import com.atguigu.gmall.product.model.*;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface SkuManageService {
@@ -26,4 +24,16 @@ public interface SkuManageService {
 
     //下架
     void cancelSale(Long skuId);
+
+    //获取图片信息
+    SkuInfo getSkuInfo(Long skuId);
+
+    //商品详情的价格
+    BigDecimal getSkuPrice(Long skuId);
+
+    //根据skuid获取平台属性和属性值
+    List<BaseAttrInfo> getAttrList(Long skuId);
+
+    //根据获取SKU转换后的JSON，实现切换商品
+    String getSkuValueIdsMap(Long spuId);
 }

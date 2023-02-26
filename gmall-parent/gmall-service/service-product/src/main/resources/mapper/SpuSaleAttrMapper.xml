@@ -27,4 +27,18 @@
         WHERE ssa.spu_id = #{spuId}
     </select>
 
+    <select id="getSpuSaleAttrListCheckBySku" resultMap="spuSaleAttrMap">
+        select ssa.id,
+               ssa.spu_id,
+               ssa.base_sale_attr_id,
+               ssa.sale_attr_name,
+               ssav.id spu_sale_attr_value_id,
+               ssav.sale_attr_value_name,
+               if(sv.id is null, '0', '1') is_checked
+        from spu_sale_attr ssa inner join
+             spu_sale_attr_value ssav on ssav.spu_id = ssa.spu_id and ssav.base_sale_attr_id = ssa.base_sale_attr_id
+                               left join sku_sale_attr_value sv on sv.spu_id = ssa.spu_id and sv.sale_attr_value_id = ssav.id and sv.sku_id=#{skuId}
+        where ssa.spu_id = #{spuId}
+        order by ssav.base_sale_attr_id ,ssav.id;
+    </select>
 </mapper>
