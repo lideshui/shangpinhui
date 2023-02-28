@@ -13,6 +13,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 //开启Feign的扫描，扫描后产生代理对象，根据代理对象发起请求
 //默认扫描的包是当前包com.atguigu.gmall，可使用basePackages指定包
 @EnableFeignClients
+
 public class ItemApp {
     public static void main(String[] args) {
         SpringApplication.run(ItemApp.class, args);

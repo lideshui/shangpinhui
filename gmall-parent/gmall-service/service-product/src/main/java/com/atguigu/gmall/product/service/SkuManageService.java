@@ -36,4 +36,5 @@ public interface SkuManageService {
 
     //根据获取SKU转换后的JSON，实现切换商品
     String getSkuValueIdsMap(Long spuId);
+
 }
