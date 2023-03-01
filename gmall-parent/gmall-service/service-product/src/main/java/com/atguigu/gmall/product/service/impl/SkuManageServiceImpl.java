@@ -1,6 +1,7 @@
 package com.atguigu.gmall.product.service.impl;
 
 import com.alibaba.fastjson.JSON;
+import com.atguigu.gmall.common.cache.GmallCache;
 import com.atguigu.gmall.common.constant.RedisConst;
 import com.atguigu.gmall.product.mapper.SkuAttrValueMapper;
 import com.atguigu.gmall.product.mapper.SkuSaleAttrValueMapper;
@@ -11,6 +12,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RBloomFilter;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 
+@Slf4j
 @Service
 public class SkuManageServiceImpl implements SkuManageService {
 
@@ -43,6 +47,12 @@ public class SkuManageServiceImpl implements SkuManageService {
 
     @Autowired
     SkuSaleAttrValueService skuSaleAttrValueService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
+
+    @Autowired
+    private RedissonClient redissonClient;
 
 
     //根据spuId 查询销售属性集合
@@ -84,6 +94,10 @@ public class SkuManageServiceImpl implements SkuManageService {
             });
             skuSaleAttrValueService.saveBatch(skuSaleAttrValueList);
         }
+
+        //5。先获取布隆过滤器，再将保持的商品SKUID存入布隆过滤器
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(RedisConst.SKU_BLOOM_FILTER);
+        bloomFilter.add(skuInfo.getId());
     }
 
     //sku分页
@@ -122,31 +136,53 @@ public class SkuManageServiceImpl implements SkuManageService {
     }
 
     //RestFul商品详情获取商品图片
-//    @Override
-//    public SkuInfo getSkuInfo(Long skuId) {
-//        //通过id获取skuInfo对象判断有无该商品信息
-//        SkuInfo skuInfo = skuInfoService.getById(skuId);
-//        if (skuInfo!=null){
-//            LambdaQueryWrapper<SkuImage> queryWrapper = new LambdaQueryWrapper<>();
-//            queryWrapper.eq(SkuImage::getSkuId,skuId);
-//            List<SkuImage> list = skuImageService.list(queryWrapper);
-//            //将商品列表放到skuInfo属性值中
-//            skuInfo.setSkuImageList(list);
-//            return skuInfo;
-//        }
-//        return null;
-//    }
+    @GmallCache(prefix = RedisConst.SKUKEY_PREFIX, suffix = RedisConst.SKUKEY_SUFFIX)
+    @Override
+    public SkuInfo getSkuInfo(Long skuId) {
+        //通过id获取skuInfo对象判断有无该商品信息
+        SkuInfo skuInfo = skuInfoService.getById(skuId);
+        if (skuInfo!=null){
+            LambdaQueryWrapper<SkuImage> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(SkuImage::getSkuId,skuId);
+            List<SkuImage> list = skuImageService.list(queryWrapper);
+            //将商品列表放到skuInfo属性值中
+            skuInfo.setSkuImageList(list);
+            return skuInfo;
+        }
+        return null;
+    }
 
     //RestFul商品详情获取商品价格
     @Override
     public BigDecimal getSkuPrice(Long skuId) {
-        LambdaQueryWrapper<SkuInfo> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(SkuInfo::getId,skuId);
-        SkuInfo skuInfo = skuInfoService.getOne(queryWrapper);
-        return skuInfo.getPrice();
+        //1.创建锁对象 获取锁
+        String lockKey = RedisConst.SKUKEY_PREFIX + skuId + "price";
+        RLock lock = redissonClient.getLock(lockKey);
+        try {
+            boolean flag = lock.tryLock(RedisConst.SKULOCK_EXPIRE_PX1, RedisConst.SKULOCK_EXPIRE_PX2, TimeUnit.SECONDS);
+            if (flag) {
+                //2.获取锁成功后执行业务
+                LambdaQueryWrapper<SkuInfo> queryWrapper = new LambdaQueryWrapper<>();
+                queryWrapper.eq(SkuInfo::getId, skuId);
+                //指定查询字段
+                queryWrapper.select(SkuInfo::getPrice);
+                SkuInfo skuInfo = skuInfoService.getOne(queryWrapper);
+                if (skuInfo != null) {
+                    return skuInfo.getPrice();
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("获取价格异常:{}", e);
+        } finally {
+            //3.将锁释放
+            lock.unlock();
+        }
+        return new BigDecimal("0");
     }
 
     //RestFul商品详情获取平台属性
+    @GmallCache(prefix = "attrList:")
     @Override
     public List<BaseAttrInfo> getAttrList(Long skuId) {
         //获取mapper层对象
@@ -162,7 +198,8 @@ public class SkuManageServiceImpl implements SkuManageService {
         return attrList;
     }
 
-    //根据获取SKU转换后的JSON，实现切换商品
+    @GmallCache(prefix = "skuValueIdsMap:")
+    //RestFul根据获取SKU转换后的JSON，实现切换商品
     @Override
     public String getSkuValueIdsMap(Long spuId) {
         //声明封装所有销售属性跟SKUID对应Map
@@ -184,96 +221,5 @@ public class SkuManageServiceImpl implements SkuManageService {
 
 
 
-
-    @Autowired
-    private RedisTemplate redisTemplate;
-
-    @Autowired
-    private RedissonClient redissonClient;
-
-
-
-
-    /**
-     * 查询商品信息优化 采用Redisson实现分布式锁
-     * 1.优先从缓存中获取数据
-     * 2.获取分布式锁
-     * 3.执行查询数据库逻辑
-     *
-     * @param skuId
-     * @return
-     */
-    @Override
-    public SkuInfo getSkuInfo(Long skuId) {
-        try {
-            //1.优先从分布式缓存Redis 中获取数据
-            //1.1 构建商品缓存业务Key 形式: sku:商品ID:info
-            String dataKey = RedisConst.SKUKEY_PREFIX + skuId + RedisConst.SKUKEY_SUFFIX;
-            //1.2 从Redis分布式缓存中获取数据  有值:直接返回 没有:获取分布式锁后执行业务
-            SkuInfo skuInfo = (SkuInfo) redisTemplate.opsForValue().get(dataKey);
-            if (skuInfo == null) {
-                //2.尝试获取分布锁-采用Redisson实现分布式锁
-                ///2.1 构建商品锁名称 形式:sku:商品id:lock
-                String lockKey = RedisConst.SKUKEY_PREFIX + skuId + RedisConst.SKULOCK_SUFFIX;
-                RLock lock = redissonClient.getLock(lockKey);
-                try {
-                    //2.2 创建锁对象,尝试获取锁
-                    boolean flag = lock.tryLock(RedisConst.SKULOCK_EXPIRE_PX1, RedisConst.SKULOCK_EXPIRE_PX2, TimeUnit.SECONDS);
-                    if (flag) {
-                        //2.3 执行查询数据库业务
-                        //2.3.1 查询商品信息
-                        skuInfo = this.getSkuInfoAndImagesFromDB(skuId);
-                        if (skuInfo == null) {
-                            //将null对象暂存到redis
-                            redisTemplate.opsForValue().set(dataKey, skuInfo, RedisConst.SKUKEY_TIMEOUT, TimeUnit.MILLISECONDS);
-                            return skuInfo;
-                        } else {
-                            //2.3.2 将商品信息放入缓存
-                            redisTemplate.opsForValue().set(dataKey, skuInfo, RedisConst.SKUKEY_TIMEOUT, TimeUnit.SECONDS);
-                            //2.3.3 返回结果
-                            return skuInfo;
-                        }
-                    } else {
-                        //获取锁失败,自旋
-                        return this.getSkuInfo(skuId);
-                    }
-
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                } finally {
-                    //3.业务执行完毕,将锁释放掉
-                    lock.unlock();
-                }
-
-            } else {
-                //命中缓存数据,直接返回
-                return skuInfo;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        //兜底操作:查询数据库
-        return this.getSkuInfoAndImagesFromDB(skuId);
-    }
-
-
-    /**
-     * 根据SkuID查询sku信息以及图片
-     *
-     * @param skuId
-     * @return
-     */
-    public SkuInfo getSkuInfoAndImagesFromDB(Long skuId) {
-        //1.根据主键ID查询商品Sku信息
-        SkuInfo skuInfo = skuInfoService.getById(skuId);
-        //2.根据SKuID查询商品SKU的图片列表
-        if (skuInfo != null) {
-            LambdaQueryWrapper<SkuImage> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(SkuImage::getSkuId, skuId);
-            List<SkuImage> skuImageList = skuImageService.list(queryWrapper);
-            skuInfo.setSkuImageList(skuImageList);
-        }
-        return skuInfo;
-    }
 
 }

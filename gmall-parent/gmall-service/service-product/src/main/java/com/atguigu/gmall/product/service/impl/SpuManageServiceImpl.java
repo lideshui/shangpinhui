@@ -1,6 +1,7 @@
 package com.atguigu.gmall.product.service.impl;
 
 
+import com.atguigu.gmall.common.cache.GmallCache;
 import com.atguigu.gmall.product.mapper.SpuSaleAttrMapper;
 import com.atguigu.gmall.product.model.*;
 import com.atguigu.gmall.product.service.*;
@@ -14,10 +15,7 @@ import org.springframework.util.CollectionUtils;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * @author: atguigu
- * @create: 2023-02-22 11:52
- */
+
 @Service
 public class SpuManageServiceImpl implements SpuManageService {
 
@@ -62,6 +60,7 @@ public class SpuManageServiceImpl implements SpuManageService {
     // 保存商品SPU信息
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void saveSpuInfo(SpuInfo spuInfo) {
         //1.保存商品基本信息到spu_info表
         spuInfoService.save(spuInfo);
@@ -116,6 +115,7 @@ public class SpuManageServiceImpl implements SpuManageService {
     }
 
     //根据spuid获取商品海报
+    @GmallCache(prefix = "spuPosterBySpuId:")
     @Override
     public List<SpuPoster> getSpuPosterBySpuId(Long spuId) {
         LambdaQueryWrapper<SpuPoster> queryWrapper = new LambdaQueryWrapper<>();
@@ -123,6 +123,7 @@ public class SpuManageServiceImpl implements SpuManageService {
         return spuPosterService.list(queryWrapper);
     }
 
+    @GmallCache(prefix = "spuSaleAttrListCheckBySku:", suffix = ":info")
     @Override
     public List<SpuSaleAttr> getSpuSaleAttrListCheckBySku(Long skuId, Long spuId) {
         SpuSaleAttrMapper spuSaleAttrMapper = (SpuSaleAttrMapper) spuSaleAttrService.getBaseMapper();

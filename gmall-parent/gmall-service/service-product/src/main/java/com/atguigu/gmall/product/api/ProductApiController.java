@@ -1,6 +1,8 @@
 package com.atguigu.gmall.product.api;
 
 
+import com.alibaba.fastjson.JSONObject;
+import com.atguigu.gmall.common.cache.GmallCache;
 import com.atguigu.gmall.product.model.*;
 import com.atguigu.gmall.product.service.BaseCategoryViewService;
 import com.atguigu.gmall.product.service.SkuManageService;
@@ -29,6 +31,7 @@ public class ProductApiController {
     private SpuManageService spuManageService;
 
 
+
     //1。根据SkuID查询SKU商品信息包含图片列表
     @GetMapping("/inner/getSkuInfo/{skuId}")
     public SkuInfo getSkuInfo(@PathVariable("skuId") Long skuId){
@@ -37,6 +40,7 @@ public class ProductApiController {
     }
 
     //2。根据商品SKU三级分类ID查询分类信息
+    @GmallCache(prefix = "categoryView")
     @GetMapping("/inner/getCategoryView/{category3Id}")
     public BaseCategoryView getCategoryView(@PathVariable("category3Id") Long category3Id) {
         return baseCategoryViewService.getById(category3Id);
@@ -70,6 +74,14 @@ public class ProductApiController {
     @GetMapping("/inner/getSkuValueIdsMap/{spuId}")
     public String getSkuValueIdsMap(@PathVariable("spuId") Long spuId){
         return skuManageService.getSkuValueIdsMap(spuId);
+    }
+
+
+    //查询所有分类列表 分类嵌套结果:一级分类分类对象中包含二级分类集合;在二级分类对象中包含三级分类集合
+    @GetMapping("/inner/getBaseCategoryList")
+    public List<JSONObject> getBaseCategoryList() {
+        List<JSONObject> list = baseCategoryViewService.getBaseCategoryList();;
+        return list;
     }
 
 
