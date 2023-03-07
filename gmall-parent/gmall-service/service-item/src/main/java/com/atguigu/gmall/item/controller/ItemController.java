@@ -23,8 +23,7 @@ import java.util.Map;
 @SuppressWarnings("all")
 public class ItemController {
 
-    @Autowired
-    private ProductFeignClient productFeignClient;
+
 
     @Autowired
     ItemService itemService;

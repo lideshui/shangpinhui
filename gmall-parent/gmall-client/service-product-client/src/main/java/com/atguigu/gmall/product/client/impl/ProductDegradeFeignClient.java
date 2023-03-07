@@ -19,7 +19,7 @@ import java.util.List;
 @Component
 public class ProductDegradeFeignClient implements ProductFeignClient {
     @Override
-    public SkuInfo getSkuInfoAndImages(Long skuId) {
+    public SkuInfo getSkuInfo(Long skuId) {
         return null;
     }
 
@@ -55,6 +55,11 @@ public class ProductDegradeFeignClient implements ProductFeignClient {
 
     @Override
     public List<JSONObject> getBaseCategoryList() {
+        return null;
+    }
+
+    @Override
+    public BaseTrademark getTrademarkById(Long tmId) {
         return null;
     }
 

@@ -21,7 +21,7 @@ public interface ProductFeignClient {
 
     //根据SkuID查询sku信息以及图片
     @GetMapping("/api/product/inner/getSkuInfo/{skuId}")  // http://service-product//api/product/inner/getSkuInfo/{skuId}
-    public SkuInfo getSkuInfoAndImages(@PathVariable("skuId") Long skuId);
+    public SkuInfo getSkuInfo(@PathVariable("skuId") Long skuId);
 
 
     //根据商品SKU三级分类ID查询分类信息
@@ -55,5 +55,10 @@ public interface ProductFeignClient {
     //查询所有分类列表 分类嵌套结果:一级分类分类对象中包含二级分类集合;在二级分类对象中包含三级分类集合
     @GetMapping("/api/product/inner/getBaseCategoryList")
     public List<JSONObject> getBaseCategoryList();
+
+    //根据品牌ID查询品牌信息
+    @GetMapping("/api/product/inner/getTrademark/{tmId}")
+    public BaseTrademark getTrademarkById(@PathVariable("tmId") Long tmId);
+
 
 }

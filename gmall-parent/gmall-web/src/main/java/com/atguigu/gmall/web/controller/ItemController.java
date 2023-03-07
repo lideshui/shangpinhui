@@ -30,7 +30,6 @@ public class ItemController {
     public String getItem(@PathVariable("skuId") Long skuId, Model model) {
         //调用详情微服务获取渲染详情页所有的数据
         Result<Map> result = itemFeignClient.getItemAllData(skuId);
-        System.out.println(JSON.toJSONString(result.getData()));
         model.addAllAttributes(result.getData());
         return "item/item";
     }

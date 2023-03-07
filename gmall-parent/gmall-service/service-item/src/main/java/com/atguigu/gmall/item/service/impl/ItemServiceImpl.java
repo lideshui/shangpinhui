@@ -3,6 +3,7 @@ package com.atguigu.gmall.item.service.impl;
 import com.atguigu.gmall.common.constant.RedisConst;
 import com.atguigu.gmall.common.result.Result;
 import com.atguigu.gmall.item.service.ItemService;
+import com.atguigu.gmall.list.client.ListFeignClient;
 import com.atguigu.gmall.product.client.ProductFeignClient;
 import com.atguigu.gmall.product.model.*;
 import org.apache.commons.lang.StringUtils;
@@ -18,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
-
+@SuppressWarnings("all")
 @Service
 public class ItemServiceImpl implements ItemService {
 
@@ -30,6 +31,9 @@ public class ItemServiceImpl implements ItemService {
 
     @Autowired
     private ThreadPoolExecutor executor;
+
+    @Autowired
+    private ListFeignClient listFeignClient;
 
     /**
      * 汇总商品详情页所需数据
@@ -56,7 +60,7 @@ public class ItemServiceImpl implements ItemService {
         //0.supplyAsync构建有返回值异步操作对象
         CompletableFuture<SkuInfo> skuInfoCompletableFuture = CompletableFuture.supplyAsync(() -> {
             //1.远程调用商品服务-根据skuID查询商品sku信息
-            SkuInfo skuInfo = productFeignClient.getSkuInfoAndImages(skuId);
+            SkuInfo skuInfo = productFeignClient.getSkuInfo(skuId);
             if (skuInfo != null) {
                 data.put("skuInfo", skuInfo);
             }
@@ -122,16 +126,25 @@ public class ItemServiceImpl implements ItemService {
         }, executor);
 
 
+        //8.远程调用搜索微服务，更新ES索引库中商品文档热门分值
+        CompletableFuture<Void> incrHotScoreCompletableFuture = CompletableFuture.runAsync(() -> {
+            listFeignClient.incrHotScore(skuId);
+        }, executor);
+
+
         //8.组合多个异步任务对象 ,必须等待所有任务执行完毕
         CompletableFuture.allOf(
-                skuAttrListCompletableFuture,
+                skuInfoCompletableFuture,
                 categoryViewCompletableFuture,
                 spuPosterListCompletableFuture,
                 spuSaleAttrListCompletableFuture,
                 valuesSkuJsonCompletableFuture,
                 priceCompletableFuture,
-                skuAttrListCompletableFuture
+                skuAttrListCompletableFuture,
+                incrHotScoreCompletableFuture
         ).join();
         return data;
     }
+
+
 }

@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.atguigu.gmall.common.cache.GmallCache;
 import com.atguigu.gmall.product.model.*;
 import com.atguigu.gmall.product.service.BaseCategoryViewService;
+import com.atguigu.gmall.product.service.BaseTrademarkService;
 import com.atguigu.gmall.product.service.SkuManageService;
 import com.atguigu.gmall.product.service.SpuManageService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,9 @@ public class ProductApiController {
 
     @Autowired
     private SpuManageService spuManageService;
+
+    @Autowired
+    private BaseTrademarkService baseTrademarkService;
 
 
 
@@ -82,6 +86,15 @@ public class ProductApiController {
     public List<JSONObject> getBaseCategoryList() {
         List<JSONObject> list = baseCategoryViewService.getBaseCategoryList();;
         return list;
+    }
+
+
+    //根据品牌ID查询品牌信息
+    @GetMapping("/inner/getTrademark/{tmId}")
+    @GmallCache(prefix = "trademark:")
+    public BaseTrademark getTrademarkById(@PathVariable("tmId") Long tmId) {
+        BaseTrademark trademark = baseTrademarkService.getById(tmId);
+        return trademark;
     }
 
 
