@@ -27,7 +27,7 @@ public class CodeGenerator {
         // 设置父模块名称
         String parentModuleName = "com.atguigu.gmall";
         // 设置子模块名称⚠️
-        String moduleName = "product";
+        String moduleName = "user";
         String subPath = "/service-" + moduleName;
         // 设置数据库连接⚠️
         String databaseUrl = "jdbc:mysql://101.200.162.17:3306/gmall_" + moduleName + "?useUnicode=true&useSSL=false&characterEncoding=utf8";

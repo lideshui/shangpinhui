@@ -7,10 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.RedisTemplate;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @SpringBootTest
@@ -55,7 +52,6 @@ public class ResidTest {
             category1.put("categoryName", category1Name);
 
 
-
             //5构建所有二级分类集合对象
             List<JSONObject> resultList2 = new ArrayList<>();
 
@@ -79,13 +75,12 @@ public class ResidTest {
                 resultList2.add(category2);
 
 
-
                 //6遍历当前二级分类的三级分类
                 List<JSONObject> resultList3 = new ArrayList<>();
                 List<BaseCategoryView> baseCategory3List = category2Entry.getValue();
 
                 //6.1遍历三级分类集合
-                baseCategory3List.stream().forEach(category3Info ->{
+                baseCategory3List.stream().forEach(category3Info -> {
                     JSONObject category3 = new JSONObject();
                     category3.put("categoryId", category3Info.getCategory3Id());
                     category3.put("categoryName", category3Info.getCategory3Name());
@@ -103,8 +98,11 @@ public class ResidTest {
 
             //8将一级分类信息添加到集合
             resultList.add(category1);
-
         }
+    }
+
+    @Test
+    public void test02() {
 
     }
 }
