@@ -84,7 +84,6 @@ public class CarApiController {
 
     /**
      * 删除
-     *
      * @param skuId
      * @param request
      * @return
@@ -100,6 +99,18 @@ public class CarApiController {
         }
         cartService.deleteCart(skuId, userId);
         return Result.ok();
+    }
+
+
+    /**
+     * 查询用户购物车中已勾选的商品列表
+     * @param userId
+     * @return
+     */
+    @GetMapping("/getCartCheckedList/{userId}")
+    public List<CartInfo> getCartCheckedList(@PathVariable("userId") Long userId){
+        List<CartInfo> list = cartService.getCartCheckedList(userId);
+        return list;
     }
 
 }

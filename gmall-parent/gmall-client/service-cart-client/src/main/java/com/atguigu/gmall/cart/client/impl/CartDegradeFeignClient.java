@@ -8,8 +8,10 @@ import java.util.List;
 
 @Component
 public class CartDegradeFeignClient implements CartFeignClient {
+
+
     @Override
-    public List<CartInfo> getCartCheckedList(String userId) {
+    public List<CartInfo> getCartCheckedList(Long userId) {
         return null;
     }
 }

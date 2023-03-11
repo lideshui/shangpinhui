@@ -16,8 +16,7 @@ import java.util.List;
 public interface CartFeignClient {
     //  根据用户Id 获取到选中购物车列表。
     @GetMapping("api/cart/getCartCheckedList/{userId}")
-    List<CartInfo> getCartCheckedList(@PathVariable String userId);
-
+    public List<CartInfo> getCartCheckedList(@PathVariable("userId") Long userId);
 
 }
 

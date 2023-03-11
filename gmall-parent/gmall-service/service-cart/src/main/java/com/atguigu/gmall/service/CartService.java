@@ -12,7 +12,16 @@ public interface CartService  {
     //查询用户购物车列表，需要合并
     List<CartInfo> cartList(String userId, String userTempId);
 
+    //修改选中状态
     void checkCart(String userId, Integer isChecked, Long skuId);
 
+    //删除购物车
     void deleteCart(Long skuId, String userId);
+
+    /**
+     * 查询用户购物车中已勾选的商品列表
+     * @param userId
+     * @return
+     */
+    List<CartInfo> getCartCheckedList(Long userId);
 }

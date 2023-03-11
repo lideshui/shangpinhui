@@ -6,6 +6,7 @@ import com.atguigu.gmall.common.util.DateUtil;
 import com.atguigu.gmall.product.client.ProductFeignClient;
 import com.atguigu.gmall.product.model.SkuInfo;
 import com.atguigu.gmall.service.CartService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.BoundHashOperations;
@@ -16,6 +17,7 @@ import org.springframework.util.CollectionUtils;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class CartServiceImpl implements CartService {
@@ -166,6 +168,34 @@ public class CartServiceImpl implements CartService {
         BoundHashOperations<String, String, CartInfo> hashOps = redisTemplate.boundHashOps(cartKey);
         //删除购物车商品
         hashOps.delete(skuId.toString());
+    }
+
+    /**
+     * 查询用户购物车中已勾选的商品列表
+     * @param userId
+     * @return
+     */
+    @Override
+    public List<CartInfo> getCartCheckedList(Long userId) {
+        //1.构建查询购物车Hash结构的redisKey
+        String cartKey = getCartKey(userId.toString());
+
+        //2.查询用户所有的购物车商品
+        //根据redisKey创建该key的操作对象
+        BoundHashOperations<String, String, CartInfo> hashOps = redisTemplate.boundHashOps(cartKey);
+        //获取所有属性值
+        List<CartInfo> cartInfoList = hashOps.values();
+        //3.过滤商品为选中的商品，注意掌握stream的filter用法⚠️
+        if(!CollectionUtils.isEmpty(cartInfoList)){
+            List<CartInfo> cartCheckedList = cartInfoList.stream().filter(cartInfo -> {
+                //过滤条件 购物车对象中 isChecked 为1 符合条件
+                return cartInfo.getIsChecked() == 1;
+                //收集购物车中被选中的商品
+            }).collect(Collectors.toList());
+            //直接返回被选中的商品集合
+            return cartCheckedList;
+        }
+        return null;
     }
 
 

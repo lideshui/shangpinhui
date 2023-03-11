@@ -41,6 +41,14 @@ public class OrderDetail extends BaseEntity {
     @TableField("sku_num")
     private Integer skuNum;
 
+    @ApiModelProperty(value = "订单来源类型 商城订单:MALL  秒杀订单:SECKILL")
+    @TableField("source_type")
+    private String sourceType;
+
+    @ApiModelProperty(value = "订单来源类型 1:商城订单 2:秒杀订单")
+    @TableField("source_id")
+    private Long sourceId;
+
     // 是否有足够的库存！
     @TableField(exist = false)
     private String hasStock;
