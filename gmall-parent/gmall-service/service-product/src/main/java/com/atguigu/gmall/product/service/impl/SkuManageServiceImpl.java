@@ -2,7 +2,9 @@ package com.atguigu.gmall.product.service.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.atguigu.gmall.common.cache.GmallCache;
+import com.atguigu.gmall.common.constant.MqConst;
 import com.atguigu.gmall.common.constant.RedisConst;
+import com.atguigu.gmall.common.service.RabbitService;
 import com.atguigu.gmall.product.mapper.SkuAttrValueMapper;
 import com.atguigu.gmall.product.mapper.SkuSaleAttrValueMapper;
 import com.atguigu.gmall.product.mapper.SpuSaleAttrMapper;
@@ -53,6 +55,9 @@ public class SkuManageServiceImpl implements SkuManageService {
 
     @Autowired
     private RedissonClient redissonClient;
+
+    @Autowired
+    private RabbitService rabbitService;
 
 
     //根据spuId 查询销售属性集合
@@ -117,22 +122,35 @@ public class SkuManageServiceImpl implements SkuManageService {
         return skuInfoService.page(iPage, queryWrapper);
     }
 
-    //上架
+    //上架-使用MQ优化
     @Override
     public void onSale(Long skuId) {
-        LambdaUpdateWrapper<SkuInfo> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.eq(SkuInfo::getId, skuId);
-        updateWrapper.set(SkuInfo::getIsSale, 1);
-        skuInfoService.update(updateWrapper);
+        //1.修改数据库中上架状态
+        SkuInfo skuInfo = new SkuInfo();
+        skuInfo.setId(skuId);
+        skuInfo.setIsSale(1);
+        skuInfoService.updateById(skuInfo);
+        //2.将来还需要同步将索引库ES的商品进行上架;需要构建商品缓存到Redis
+        rabbitService.sendMessage(MqConst.EXCHANGE_DIRECT_GOODS, MqConst.ROUTING_GOODS_UPPER, skuId);
     }
 
     //下架
     @Override
     public void cancelSale(Long skuId) {
+        //SkuInfo skuInfo = skuInfoService.getById(skuId);
+        //if (skuInfo != null && skuInfo.getIsSale() != 0) {
+        //    skuInfo.setIsSale(0);
+        //    skuInfoService.updateById(skuInfo);
+        //}
         LambdaUpdateWrapper<SkuInfo> updateWrapper = new LambdaUpdateWrapper<>();
+        //1.设置更新条件
         updateWrapper.eq(SkuInfo::getId, skuId);
+        //1.设置更新字段值
         updateWrapper.set(SkuInfo::getIsSale, 0);
         skuInfoService.update(updateWrapper);
+
+        //2. 将来还需要同步将索引库ES的商品进行下架;需要删除商品缓存Redis
+        rabbitService.sendMessage(MqConst.EXCHANGE_DIRECT_GOODS, MqConst.ROUTING_GOODS_LOWER, skuId);
     }
 
     //RestFul商品详情获取商品图片

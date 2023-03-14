@@ -31,4 +31,14 @@ public class OrderController {
         //2.渲染页面
         return "/order/trade";
     }
+
+
+    /**
+     * 渲染订单列表页
+     * @return
+     */
+    @GetMapping("/myOrder.html")
+    public String myOrderHtml() {
+        return "/order/myOrder";
+    }
 }

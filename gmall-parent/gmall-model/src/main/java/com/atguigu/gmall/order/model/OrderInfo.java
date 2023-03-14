@@ -5,6 +5,7 @@ import com.atguigu.gmall.activity.model.CouponInfo;
 import com.atguigu.gmall.base.model.BaseEntity;
 import com.atguigu.gmall.enums.model.ActivityType;
 import com.atguigu.gmall.enums.model.CouponType;
+import com.atguigu.gmall.enums.model.OrderStatus;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -133,8 +134,17 @@ public class OrderInfo extends BaseEntity {
     private List<OrderDetailVo> orderDetailVoList;
 
     //  映射订单状态的名称.
-    @TableField(exist = false)
-    private String orderStatusName;
+//    @TableField(exist = false)
+//    private String orderStatusName;
+
+    /**
+     * 订单状态-中文 转JSON调用该属性的get方法
+     * @return
+     */
+    public String getOrderStatusName() {
+        String statusName = OrderStatus.getStatusNameByStatus(orderStatus);
+        return statusName;
+    }
 
     @TableField(exist = false)
     private CouponInfo couponInfo;

@@ -3,7 +3,10 @@ package com.atguigu.gmall.order.service.impl;
 import com.alibaba.nacos.client.naming.utils.CollectionUtils;
 import com.atguigu.gmall.cart.client.CartFeignClient;
 import com.atguigu.gmall.cart.model.CartInfo;
+import com.atguigu.gmall.common.constant.MqConst;
 import com.atguigu.gmall.common.constant.RedisConst;
+import com.atguigu.gmall.common.service.RabbitService;
+import com.atguigu.gmall.common.util.HttpClientUtil;
 import com.atguigu.gmall.enums.model.OrderStatus;
 import com.atguigu.gmall.enums.model.PaymentType;
 import com.atguigu.gmall.enums.model.ProcessStatus;
@@ -15,14 +18,21 @@ import com.atguigu.gmall.order.service.OrderInfoService;
 import com.atguigu.gmall.product.client.ProductFeignClient;
 import com.atguigu.gmall.user.client.UserFeignClient;
 import com.atguigu.gmall.user.model.UserAddress;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.BoundHashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -46,6 +56,18 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
     @Autowired
     private OrderDetailService orderDetailService;
 
+    /**
+     * 仓库管理系统调用接口基础地址
+     */
+    @Value("${ware.url}")
+    private String wareUrl;
+
+    @Autowired
+    private ThreadPoolExecutor executor;
+
+
+    @Autowired
+    private RabbitService rabbitService;
 
 
 
@@ -152,10 +174,57 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         }
 
 
-        //2.todo 调用第三方库存系统(仓储服务)接口进行验证商品库存
+
+        //这是从OrderInfo中直接过去商品列表
+        List<OrderDetail> orderDetailList = orderInfo.getOrderDetailList();
+        //创建错误信息存储数组
+        List<String> errorMessage = new ArrayList<>();
+        List<CompletableFuture> completableFuturesList = new ArrayList<>();
+        if (!CollectionUtils.isEmpty(orderDetailList)) {
+            //如果当前订单内的商品数量不为空，就开始验证库存和价格
+            orderDetailList.stream().forEach(orderDetail -> {
+                //2.调用第三方库存系统(仓储服务)接口进行验证商品库存
+                CompletableFuture<Void> stockCompletableFuture = CompletableFuture.runAsync(() -> {
+                    boolean hashStock = this.checkStock(orderDetail.getSkuId(), orderDetail.getSkuNum());
+                    if (!hashStock) {
+                        //如果库存数量不足，则向错误信息集合添加错误信息
+                        errorMessage.add("商品:" + orderDetail.getSkuName() + "库存不足!");
+                    }
+                }, executor);
 
 
-        //3.todo 调用商品微服务获取商品价格,验证商品价格是否发生变化
+                CompletableFuture<Void> priceCompletableFuture = CompletableFuture.runAsync(() -> {
+                    //3. 调用商品微服务获取商品价格,验证商品价格是否发生变化
+                    BigDecimal skuPrice = productFeignClient.getSkuPrice(orderDetail.getSkuId());
+                    //如果商品价格发生了变化
+                    if (orderDetail.getOrderPrice().compareTo(skuPrice) != 0) {
+                        //3.1 将购物车中商品价格改为最新
+                        String cartKey = RedisConst.USER_KEY_PREFIX + userId + RedisConst.USER_CART_KEY_SUFFIX;
+                        BoundHashOperations<String, String, CartInfo> hashOps = redisTemplate.boundHashOps(cartKey);
+                        CartInfo cartInfo = hashOps.get(orderDetail.getSkuId().toString());
+                        cartInfo.setSkuPrice(skuPrice);
+                        hashOps.put(cartInfo.getSkuId().toString(), cartInfo);
+                        //向错误信息集合添加错误信息
+                        errorMessage.add("商品:" + orderDetail.getSkuName() + "价格已失效!");
+                    }
+                }, executor);
+
+                completableFuturesList.add(stockCompletableFuture);
+                completableFuturesList.add(priceCompletableFuture);
+            });
+        }
+
+
+        //等待所有异步任务全部执行完毕
+        //注意，这里使用的是异步任务数组，所以要将集合转成数组
+        //new了一个数组泛型，并指定了长度
+        CompletableFuture.allOf(completableFuturesList.toArray(new CompletableFuture[completableFuturesList.size()])).join();
+
+        //判断错误信息中是否有数据 有数据:业务验证失败 结束
+        if (!CollectionUtils.isEmpty(errorMessage)) {
+            throw new RuntimeException(errorMessage.stream().collect(Collectors.joining(",")));
+        }
+
 
 
         //4.保存订单信息
@@ -174,8 +243,6 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         String outTradeNo = "ATGUIGU" + System.currentTimeMillis() + new Random().nextInt(1000);
         //设置唯一的订单号
         orderInfo.setOutTradeNo(outTradeNo);
-        //获取商品名称
-        List<OrderDetail> orderDetailList = orderInfo.getOrderDetailList();
 
         //循环每一条订单商品详情
         if (!CollectionUtils.isEmpty(orderDetailList)) {
@@ -215,6 +282,13 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         }
         //批量保存订单明细
         orderDetailService.saveBatch(orderDetailList);
+
+        //TODO 订单中包含商品SkuID从购物车中删除 为了后续方便开发,暂时不删除
+        //6. 发送延迟关闭订单消息 到 RabbitMQ  普通商城订单关单失效24小时
+        rabbitService.sendDelayMessage(MqConst.EXCHANGE_DIRECT_ORDER_CANCEL, MqConst.ROUTING_ORDER_CANCEL, orderInfo.getId(), 30);
+
+
+
         //返回订单ID
         return orderInfo.getId();
     }
@@ -274,5 +348,63 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
     }
 
 
+    /**
+     * 调用第三方仓库存储系统进行验证商品库存是否充足
+     *
+     * @param skuId
+     * @param skuNum
+     * @return
+     */
+    @Override
+    public boolean checkStock(Long skuId, Integer skuNum) {
+        //1.按照仓储系统提供http接口发起http请求
+        String url = wareUrl + "/hasStock?skuId=" + skuId + "&num=" + skuNum;
+        String result = HttpClientUtil.doGet(url);
+        if (StringUtils.isNotBlank(result) && result.equals("1")) {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public IPage<OrderInfo> getOrderList(IPage<OrderInfo> iPage, String userId, String status) {
+        //1.获取操作订单持久层对象
+        OrderInfoMapper orderInfoMapper = this.getBaseMapper();
+
+        //2.调用自定义SQL查询
+        if (StringUtils.isBlank(status)) {
+            OrderStatus orderStatus = OrderStatus.UNPAID;
+            status = orderStatus.name();
+        }
+        iPage = orderInfoMapper.getOrderList(iPage, status, userId);
+        return iPage;
+    }
+
+
+    /**
+     * 关闭订单
+     *
+     * @param orderId
+     */
+    @Override
+    public void execExpiredOrder(Long orderId) {
+        this.updateOrderStatus(orderId, ProcessStatus.CLOSED);
+    }
+
+
+    /**
+     * 根据订单ID修改为指定订单状态
+     *
+     * @param orderId
+     * @param processStatus
+     */
+    @Override
+    public void updateOrderStatus(Long orderId, ProcessStatus processStatus) {
+        OrderInfo orderInfo = new OrderInfo();
+        orderInfo.setId(orderId);
+        orderInfo.setOrderStatus(processStatus.name());
+        orderInfo.setProcessStatus(processStatus.name());
+        this.updateById(orderInfo);
+    }
 
 }
