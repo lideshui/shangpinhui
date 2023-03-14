@@ -82,4 +82,11 @@ public interface OrderInfoService extends IService<OrderInfo> {
      * @param processStatus
      */
     void updateOrderStatus(Long orderId, ProcessStatus processStatus);
+
+    /**
+     * 根据订单Id 查询订单信息
+     * @param orderId
+     * @return
+     */
+    OrderInfo getOrderInfo(Long orderId);
 }

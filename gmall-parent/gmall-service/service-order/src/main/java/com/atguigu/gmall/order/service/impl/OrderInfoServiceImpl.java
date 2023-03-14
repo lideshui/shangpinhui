@@ -10,6 +10,7 @@ import com.atguigu.gmall.common.util.HttpClientUtil;
 import com.atguigu.gmall.enums.model.OrderStatus;
 import com.atguigu.gmall.enums.model.PaymentType;
 import com.atguigu.gmall.enums.model.ProcessStatus;
+import com.atguigu.gmall.order.mapper.OrderDetailMapper;
 import com.atguigu.gmall.order.mapper.OrderInfoMapper;
 import com.atguigu.gmall.order.model.OrderDetail;
 import com.atguigu.gmall.order.model.OrderInfo;
@@ -18,6 +19,7 @@ import com.atguigu.gmall.order.service.OrderInfoService;
 import com.atguigu.gmall.product.client.ProductFeignClient;
 import com.atguigu.gmall.user.client.UserFeignClient;
 import com.atguigu.gmall.user.model.UserAddress;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -67,7 +69,15 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
 
 
     @Autowired
+    OrderInfoMapper orderInfoMapper;
+
+
+    @Autowired
     private RabbitService rabbitService;
+
+
+    @Autowired
+    OrderDetailMapper orderDetailMapper;
 
 
 
@@ -405,6 +415,21 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         orderInfo.setOrderStatus(processStatus.name());
         orderInfo.setProcessStatus(processStatus.name());
         this.updateById(orderInfo);
+    }
+
+    /**
+     * 根据订单Id 查询订单信息
+     * @param orderId
+     * @return
+     */
+    @Override
+    public OrderInfo getOrderInfo(Long orderId) {
+        OrderInfo orderInfo = orderInfoMapper.selectById(orderId);
+        LambdaQueryWrapper<OrderDetail> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(OrderDetail::getOrderId, orderId);
+        List<OrderDetail> orderDetailList = orderDetailMapper.selectList(queryWrapper);
+        orderInfo.setOrderDetailList(orderDetailList);
+        return orderInfo;
     }
 
 }

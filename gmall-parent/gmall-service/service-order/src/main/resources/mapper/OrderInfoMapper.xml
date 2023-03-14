@@ -11,23 +11,23 @@
     <!--查询订单-->
     <select id="getOrderList" resultMap="orderInfoMap">
         SELECT
-            oi.id,
-            oi.consignee,
-            oi.consignee_tel,
-            oi.total_amount,
-            oi.order_status,
-            oi.user_id,
-            oi.payment_way,
-            oi.delivery_address,
-            oi.order_comment,
-            oi.out_trade_no,
-            oi.trade_body,
-            od.id order_detail_id,
-            od.sku_id,
-            od.sku_name,
-            od.sku_num,
-            od.img_url,
-            od.order_price
+        oi.id,
+        oi.consignee,
+        oi.consignee_tel,
+        oi.total_amount,
+        oi.order_status,
+        oi.user_id,
+        oi.payment_way,
+        oi.delivery_address,
+        oi.order_comment,
+        oi.out_trade_no,
+        oi.trade_body,
+        od.id order_detail_id,
+        od.sku_id,
+        od.sku_name,
+        od.sku_num,
+        od.img_url,
+        od.order_price
         FROM
         order_info oi
         INNER JOIN order_detail od ON od.order_id = oi.id

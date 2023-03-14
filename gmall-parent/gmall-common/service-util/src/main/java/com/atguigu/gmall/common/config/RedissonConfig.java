@@ -14,7 +14,7 @@ import org.springframework.util.StringUtils;
 public class RedissonConfig {
 
     private static String ADDRESS_PREFIX = "redis://%s:%d";
-    private int timeout = 3000;
+    private int timeout = 10000;
 
 
     @Bean

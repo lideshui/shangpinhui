@@ -14,10 +14,6 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
-/**
- * @author: atguigu
- * @create: 2023-03-13 14:14
- */
 @Slf4j
 @Component
 public class OrderReceiver {

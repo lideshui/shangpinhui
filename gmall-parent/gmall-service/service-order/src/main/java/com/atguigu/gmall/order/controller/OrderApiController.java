@@ -72,4 +72,14 @@ public class OrderApiController {
         iPage = orderInfoService.getOrderList(iPage, userId, status);
         return Result.ok(iPage);
     }
+
+    /**
+     * 内部调用获取订单
+     * @param orderId
+     * @return
+     */
+    @GetMapping("inner/getOrderInfo/{orderId}")
+    public OrderInfo getOrderInfo(@PathVariable(value = "orderId") Long orderId){
+        return orderInfoService.getOrderInfo(orderId);
+    }
 }
