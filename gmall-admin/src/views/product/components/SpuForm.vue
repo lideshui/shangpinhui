@@ -1,0 +1,476 @@
+<template>
+  <!--表单-->
+  <el-form :model="spuForm" label-width="70px">
+
+    <el-form-item label="spu名称">
+      <el-input v-model="spuForm.spuName"/>
+    </el-form-item>
+
+    <el-form-item label="品牌" prop="tmId">
+      <el-select v-model="spuForm.tmId" placeholder="请选择">
+        <el-option
+          v-for="trademark in trademarkList"
+          :key="trademark.id"
+          :label="trademark.tmName"
+          :value="trademark.id"/>
+      </el-select>
+    </el-form-item>
+
+    <el-form-item label="spu描述">
+      <el-input v-model="spuForm.description" :rows="5" type="textarea"/>
+    </el-form-item>
+
+    <el-form-item label="上传图片" >
+      <el-upload
+        :on-success="onUploadSuccess"
+        :before-upload="beforeUpload"
+        :on-preview="onUploadPreview"
+        :on-remove="onUploadRemove"
+        :multiple="true"
+        :action="BASE_API+'/admin/product/fileUpload'"
+        class="upload-demo"
+        list-type="picture-card"
+        :file-list="spuImageBackList">
+        <i class="el-icon-plus"/>
+        <div slot="tip" class="el-upload__tip">只能上传jpg/png/gif文件，且不超过2MB</div>
+      </el-upload>
+    </el-form-item>
+
+    <div style="margin-bottom:10px;">
+      <el-button type="primary" icon="el-icon-plus" size="mini" @click="addSaleAttr()">添加销售属性</el-button>
+    </div>
+    <div>
+      <el-table
+        v-loading="spuSaleAttrListLoading"
+        ref="spuSaleAttrTable"
+        :data="spuSaleAttrListTemp"
+        element-loading-text="数据正在加载......"
+        border
+        fit
+        highlight-current-row>
+        <el-table-column align="center" label="序号" width="100">
+          <template slot-scope="scope">
+            {{ scope.$index + 1 }}
+          </template>
+        </el-table-column>
+        <el-table-column label="销售属性id" width="100">
+          <template slot-scope="scope">
+            {{ scope.row.baseSaleAttrId }}
+          </template>
+        </el-table-column>
+        <el-table-column label="销售属性名称" width="200">
+          <template slot-scope="scope">
+            <el-select
+              ref="saleAttr"
+              v-model="scope.row.saleAttr"
+              placeholder="请选择">
+              <el-option
+                v-for="baseSaleAttr in baseSaleAttrList"
+                :key="baseSaleAttr.id"
+                :label="baseSaleAttr.name"
+                :value="baseSaleAttr.id+'|'+baseSaleAttr.name"/>
+            </el-select>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="销售属性值">
+          <template slot-scope="scope">
+            <el-tag
+              v-for="tag in scope.row.spuSaleAttrValueList"
+              :key="tag"
+              :disable-transitions="false"
+              closable
+              @close="handleTagClose(tag, scope.row)">
+              {{ tag }}
+            </el-tag>
+
+            <el-input
+              v-if="scope.row.edit"
+              v-model="scope.row.saleAttrValue"
+              class="input-new-tag"
+              size="small"
+              @keyup.enter.native="saveAttrValue(scope.row)"
+              @blur="saveAttrValue(scope.row)" />
+            <el-button v-else class="button-new-tag" size="small" @click="editAttrValue(scope.row)">+ 添加</el-button>
+
+        </template></el-table-column>
+
+        <el-table-column label="操作" width="200" align="center">
+          <template slot-scope="scope">
+            <el-button type="danger" size="mini" icon="el-icon-edit" @click="deleteSaleAttr(scope.row.saleAttr)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <div style="margin-top: 10px">&nbsp;</div>
+    <el-form-item label="上传海报" >
+      <el-upload
+        :on-success="onUploadPosterSuccess"
+        :before-upload="beforeUpload"
+        :on-preview="onUploadPreview"
+        :on-remove="onUploadPosterRemove"
+        :multiple="true"
+        :action="BASE_API+'/admin/product/fileUpload'"
+        class="upload-demo"
+        list-type="picture-card"
+        :file-list="spuPosterBackList">
+        <i class="el-icon-plus"/>
+        <div slot="tip" class="el-upload__tip">只能上传jpg/png/gif文件，且不超过2MB</div>
+      </el-upload>
+    </el-form-item>
+
+    <!--按钮-->
+    <div style="margin-top:22px;">
+      <el-button type="primary" size="mini" @click="saveSpuInfo()">保存</el-button>
+      <el-button type="default" size="mini" @click="backToSpuList()">返回</el-button>
+    </div>
+
+    <!--图片预览-->
+    <el-dialog :visible.sync="dialogImageVisible">
+      <img :src="dialogImageUrl" width="100%" alt="">
+    </el-dialog>
+  </el-form>
+
+</template>
+
+<script>
+import spu from '@/api/product/spu'
+import prop from '@/api/baseinfo/prop'
+import categoryTrademarkApi from '@/api/baseinfo/categoryTrademark'
+
+export default {
+
+  props: {
+    category3Id: {
+      type: String,
+      default: null
+    }
+  },
+
+  data() {
+    return {
+
+      // 接口API地址
+      BASE_API: process.env.BASE_API,
+
+      // 基本销售属性列表
+      baseSaleAttrList: [],
+
+      // Spu表单数据
+      spuForm: {
+        id: null,
+        spuName: null,
+        tmId: null,
+        description: null,
+        category3Id: null,
+        // 上传文件列表
+        spuImageList: [],
+        // 销售属性
+        spuSaleAttrList: [],
+        spuPosterList: []
+      },
+      spuSaleAttrListTemp: [], // 临时数据：格式：baseSaleAttrId|saleAttrName
+
+      // 销售属性列表loading
+      spuSaleAttrListLoading: false,
+
+      // 图片预览区域url
+      dialogImageUrl: '',
+      // 图片预览对话框
+      dialogImageVisible: false,
+      // 品牌列表
+      trademarkList: [],
+
+      // 修改
+      spuId: null,
+      spuInfo: {},
+      spuImageBackList: [],
+      spuPosterBackList: []
+    }
+  },
+
+  methods: {
+
+    init(category3Id, spuId) {
+      this.category3Id = category3Id
+      this.spuId = spuId
+
+      // 初始化值
+      // Spu表单数据
+      this.spuForm = {
+        id: null,
+        spuName: null,
+        description: null,
+        category3Id: null,
+        // 上传文件列表
+        spuImageList: [],
+        // 销售属性
+        spuSaleAttrList: [],
+
+        spuPosterList: []
+      }
+      this.spuSaleAttrListTemp = []
+      this.getBaseSaleAttrList()
+      // 获取品牌列表
+      this.getTrademarkList()
+
+      // 修改
+      this.spuInfo = {}
+      this.spuImageBackList = []
+      this.spuPosterBackList = []
+      if (this.spuId != null) {
+        this.getSpuInfo()
+      }
+    },
+
+    getSpuInfo() {
+      spu.getSpuInfo(this.spuId).then(response => {
+        this.spuInfo = response.data
+
+        this.spuForm.spuName = this.spuInfo.spuName
+        this.spuForm.tmId = this.spuInfo.tmId
+        this.spuForm.description = this.spuInfo.description
+
+        this.spuInfo.spuImageList.forEach(item => {
+          let obj = new Object()
+          obj.url = item.imgUrl
+          this.spuImageBackList.push(obj)
+
+          this.spuForm.spuImageList.push({
+            imgName: item.imgName,
+            imgUrl: item.imgUrl
+          })
+        })
+
+        this.spuInfo.spuPosterList.forEach(item => {
+          let obj = new Object()
+          obj.url = item.imgUrl
+          this.spuPosterBackList.push(obj)
+
+          this.spuForm.spuPosterList.push({
+            imgName: item.imgName,
+            imgUrl: item.imgUrl
+          })
+        })
+
+        this.spuInfo.spuSaleAttrList.forEach(item => {
+          const valueList = []
+          item.spuSaleAttrValueList.forEach(it => {
+            valueList.push(it.saleAttrValueName)
+          })
+          const saleAttr = {
+            saleAttr: item.baseSaleAttrId + '|' + item.saleAttrName, // id|name 字符串
+            saleAttrValue: item.id, // current input tag
+            edit: false,
+            spuSaleAttrValueList: valueList // [tag1, tag2, tag3]
+          }
+
+          this.spuSaleAttrListTemp.push(saleAttr)
+        })
+      })
+    },
+
+    // 获取基本销售属性列表
+    getBaseSaleAttrList() {
+      spu.getBaseSaleAttrList().then(response => {
+        this.baseSaleAttrList = response.data
+      })
+    },
+
+    // 获取品牌列表
+    getTrademarkList() {
+      debugger
+      // 查询数据
+      categoryTrademarkApi.findTrademarkList(this.category3Id).then(response => {
+        this.trademarkList = response.data
+      })
+    },
+
+    // 保存Spu
+    saveSpuInfo() {
+      this.spuForm.category3Id = this.category3Id
+      this.spuForm.spuSaleAttrList = []
+      this.spuSaleAttrListTemp.forEach(spuSaleAttr => {
+        // 处理销售属性
+        const arr = spuSaleAttr.saleAttr.split('|')
+        spuSaleAttr.baseSaleAttrId = arr[0]
+        spuSaleAttr.saleAttrName = arr[1]
+        const saleAttr = {
+          baseSaleAttrId: arr[0],
+          saleAttrName: arr[1],
+          spuSaleAttrValueList: []
+        }
+
+        // 处理销售属性值
+        spuSaleAttr.spuSaleAttrValueList.forEach(spuSaleAttrValue => {
+          const saleAttrValue = {
+            baseSaleAttrId: arr[0],
+            saleAttrValueName: spuSaleAttrValue
+          }
+          saleAttr.spuSaleAttrValueList.push(saleAttrValue)
+        })
+
+        this.spuForm.spuSaleAttrList.push(saleAttr)
+      })
+
+      // console.log(this.spuForm)
+      if (this.spuId === null) {
+        spu.saveSpuInfo(this.spuForm).then(response => {
+          // 调用父组件监听函数
+          this.$emit('listenOnSave')
+        })
+      } else {
+        this.spuForm.id = this.spuId
+        spu.updateSpuInfo(this.spuForm).then(response => {
+          // 调用父组件监听函数
+          this.$emit('listenOnSave')
+        })
+      }
+    },
+
+    // 返回Spu列表页面
+    backToSpuList() {
+      this.$emit('listenOnClose')
+    },
+
+    // 文件上传限制条件
+    beforeUpload(file) {
+      const isJPG = file.type === 'image/jpeg'
+      const isPNG = file.type === 'image/png'
+      const isGIF = file.type === 'image/gif'
+      const isLt2M = file.size / 1024 / 1024 < 2
+
+      if (!isJPG && !isPNG && !isGIF) {
+        this.$message.error('上传头像图片只能是 JPG、PNG 或 GIF 格式!')
+        return false
+      }
+      if (!isLt2M) {
+        this.$message.error('上传头像图片大小不能超过 2MB!')
+        return false
+      }
+      return true
+    },
+
+    // 上传图片成功的回调
+    onUploadSuccess(res, file) {
+      debugger
+      // 填充上传文件列表
+      this.spuForm.spuImageList.push({
+        imgName: file.name,
+        imgUrl: file.response.data
+      })
+    },
+
+    // 上传的文件预览
+    onUploadPreview(file) {
+      this.dialogImageUrl = file.url
+      this.dialogImageVisible = true
+    },
+
+    // 删除上传的文件
+    onUploadRemove(file, fileList) {
+      debugger
+      this.spuForm.spuImageList = []
+      fileList.forEach(file => {
+        this.spuForm.spuImageList.push({
+          imgName: file.name,
+          imgUrl: file.url
+        })
+      })
+    },
+
+    // 添加销售属性
+    addSaleAttr() {
+      const saleAttr = {
+        saleAttr: null, // id|name 字符串
+        saleAttrValue: null, // current input tag
+        edit: false,
+        spuSaleAttrValueList: [] // [tag1, tag2, tag3]
+      }
+      debugger
+      this.spuSaleAttrListTemp.push(saleAttr)
+    },
+
+    // 根据name删除销售属性
+    deleteSaleAttr(saleAttr) {
+      debugger
+      const tempList = []
+      this.spuSaleAttrListTemp.forEach(item => {
+        if (item.saleAttr !== saleAttr) {
+          tempList.push(item)
+        }
+      })
+      this.spuSaleAttrListTemp = tempList
+    },
+
+    // 添加销售属性值
+    editAttrValue(row) {
+      row.edit = true
+    },
+
+    // 保存销售属性值
+    saveAttrValue(row) {
+      debugger
+      if (!row.spuSaleAttrValueList) {
+        row.spuSaleAttrValueList = []
+      }
+
+      const saleAttrValue = row.saleAttrValue
+      if (saleAttrValue) {
+        row.spuSaleAttrValueList.push(saleAttrValue)
+      }
+
+      row.saleAttrValue = ''
+      row.edit = false
+    },
+
+    // 删除销售属性值
+    handleTagClose(tag, row) {
+      debugger
+      const index = row.spuSaleAttrValueList.indexOf(tag)
+      row.spuSaleAttrValueList.splice(index, 1)
+    },
+
+    // 上传图片成功的回调
+    onUploadPosterSuccess(res, file) {
+      debugger
+      // 填充上传文件列表
+      this.spuForm.spuPosterList.push({
+        imgName: file.name,
+        imgUrl: file.response.data
+      })
+    },
+
+    // 删除上传的文件
+    onUploadPosterRemove(file, fileList) {
+      debugger
+      this.spuForm.spuPosterList = []
+      fileList.forEach(file => {
+        this.spuForm.spuPosterList.push({
+          imgName: file.name,
+          imgUrl: file.url
+        })
+      })
+    }
+  }
+}
+</script>
+
+<style scoped>
+.el-tag + .el-tag {
+    margin-left: 10px;
+  }
+  .button-new-tag {
+    margin-left: 10px;
+    height: 32px;
+    line-height: 30px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .input-new-tag {
+    width: 90px;
+    margin-left: 10px;
+    vertical-align: bottom;
+  }
+</style>
