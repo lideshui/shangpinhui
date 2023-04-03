@@ -20,8 +20,9 @@ import java.util.List;
 /**
  * Swagger2配置信息
  */
-@Configuration
-@EnableSwagger2
+//这里注掉，避免与Knife4j发生冲突
+//@Configuration
+//@EnableSwagger2
 public class Swagger2Config {
 
     @Bean
