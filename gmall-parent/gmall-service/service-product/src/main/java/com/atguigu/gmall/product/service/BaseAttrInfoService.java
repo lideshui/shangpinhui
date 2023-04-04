@@ -12,5 +12,8 @@ public interface BaseAttrInfoService {
     //根据1\2\3级分类id获取平台属性
     List<BaseAttrInfo> getAttrInfoList(Long category1Id, Long category2Id, Long category3Id);
 
+    //保存平台属性信息
+    void saveAttrInfo(BaseAttrInfo baseAttrInfo);
+
 }
 
