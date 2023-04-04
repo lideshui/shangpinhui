@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.atguigu.gmall.product.mapper.BaseTrademarkMapper">
+    <!--分类品牌管理中添加分类时，查询当前分类可选品牌列表-->
+    <select id="findCurrentTrademarkList" resultType="com.atguigu.gmall.product.model.BaseTrademark">
+        SELECT * FROM base_trademark bt
+        where bt.is_deleted ="0" AND  bt.id
+            NOT IN (SELECT bct.trademark_id FROM base_category_trademark bct
+                    WHERE bct.category3_id = #{id} AND bct.is_deleted ="0")
+    </select>
+</mapper>
