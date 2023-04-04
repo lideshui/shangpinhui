@@ -91,6 +91,13 @@ import SkuForm from '@/views/product/components/SkuForm'
 export default {
   components: { CategorySelector, SpuForm, SkuForm },
 
+  props: {
+    categoryId: {
+      type: String,
+      default: null
+    }
+  },
+
   data() {
     return {
       total: 0, // 数据库中的总记录数

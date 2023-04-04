@@ -81,6 +81,13 @@ import CategorySelector from '@/views/components/CategorySelector'
 export default {
   components: { CategorySelector, SkuForm },
 
+  props: {
+    categoryId: {
+      type: String,
+      default: null
+    }
+  },
+
   data() {
     return {
       listLoading: false, // 数据是否正在加载
