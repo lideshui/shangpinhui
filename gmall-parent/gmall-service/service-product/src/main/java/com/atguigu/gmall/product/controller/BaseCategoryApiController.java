@@ -21,7 +21,7 @@ import java.util.List;
 //需要返回JSON，所以需要RestBody +Controller
 @RestController
 @RequestMapping("/admin/product")
-//使用该注解解决跨域问题，需要对每个控制器都进行设置，太麻烦，推荐直接在网关中进行设置⚠️
+//使用该注解解决跨域问题，需要对每个控制器都进行设置，太麻烦，我们直接在网关中进行设置了，这里注掉即可⚠️
 //@CrossOrigin(origins = "www.xxx.com")
 public class BaseCategoryApiController {
 

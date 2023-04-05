@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.atguigu.gmall.product.mapper.SkuAttrValueMapper">
+    <!-- 自定义结果集:完成一对多配置 -->
+    <resultMap id="baseAttrInfoMap" type="com.atguigu.gmall.product.model.BaseAttrInfo" autoMapping="true">
+        <!--映射主键ID-->
+        <id property="id" column="id"/>
+        <!--其他普通字段-->
+        <!--<result/>-->
+        <!--配置一对多-封装多方类型-->
+        <collection property="attrValueList" ofType="com.atguigu.gmall.product.model.BaseAttrValue" autoMapping="true">
+            <id property="id" column="attr_value_id"></id>
+        </collection>
+    </resultMap>
+
+    <!--根据SkuID查询当前商品包含平台属性以及属性值-product微服务远程调用接口⚠️-->
+    <select id="getAttrList" resultMap="baseAttrInfoMap">
+        select
+            bai.id,
+            bai.attr_name,
+            bai.category_id,
+            bai.category_level,
+            bav.id base_attr_value_id,
+            bav.value_name
+        from base_attr_info bai inner join base_attr_value bav on bav.attr_id = bai.id
+                                inner join sku_attr_value sav on sav.attr_id = bai.id and sav.value_id= bav.id
+        where sav.sku_id = #{skuId}
+    </select>
+</mapper>

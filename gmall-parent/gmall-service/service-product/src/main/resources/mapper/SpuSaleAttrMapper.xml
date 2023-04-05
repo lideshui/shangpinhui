@@ -12,6 +12,7 @@
         </collection>
     </resultMap>
 
+    <!--根据spuId 查询销售属性集合-->
     <select id="getSpuSaleAttrList" resultMap="spuSaleAttrMap">
         select
             ssa.id ,
@@ -27,4 +28,20 @@
         WHERE ssa.spu_id = #{spuId}
     </select>
 
+
+    <!--查询当前商品所有的销售属性,判断为当前SKU拥有销售属性增加选中效果-product微服务远程调用接口⚠️-->
+    <select id="getSpuSaleAttrListCheckBySku" resultMap="spuSaleAttrMap">
+        select ssa.id,
+               ssa.spu_id,
+               ssa.base_sale_attr_id,
+               ssa.sale_attr_name,
+               ssav.id spu_sale_attr_value_id,
+               ssav.sale_attr_value_name,
+               if(sv.id is null, '0', '1') is_checked
+        from spu_sale_attr ssa inner join
+             spu_sale_attr_value ssav on ssav.spu_id = ssa.spu_id and ssav.base_sale_attr_id = ssa.base_sale_attr_id
+                               left join sku_sale_attr_value sv on sv.spu_id = ssa.spu_id and sv.sale_attr_value_id = ssav.id and sv.sku_id=#{skuId}
+        where ssa.spu_id = #{spuId}
+        order by ssav.base_sale_attr_id ,ssav.id;
+    </select>
 </mapper>

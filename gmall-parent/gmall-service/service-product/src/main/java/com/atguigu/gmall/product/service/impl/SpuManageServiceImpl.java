@@ -1,5 +1,6 @@
 package com.atguigu.gmall.product.service.impl;
 
+import com.atguigu.gmall.product.mapper.SpuSaleAttrMapper;
 import com.atguigu.gmall.product.model.*;
 import com.atguigu.gmall.product.service.*;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -120,6 +121,24 @@ public class SpuManageServiceImpl implements SpuManageService {
         }
 
 
+    }
+
+
+    //根据spuId 获取海报数据-product微服务远程调用接口⚠️
+    @Override
+    public List<SpuPoster> getSpuPosterBySpuId(Long spuId) {
+        LambdaQueryWrapper<SpuPoster> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(SpuPoster::getSpuId, spuId);
+        return spuPosterService.list(queryWrapper);
+    }
+
+
+    //查询当前商品所有的销售属性,判断为当前SKU拥有销售属性增加选中效果-product微服务远程调用接口⚠️
+    @Override
+    public List<SpuSaleAttr> getSpuSaleAttrListCheckBySku(Long skuId, Long spuId) {
+        SpuSaleAttrMapper spuSaleAttrMapper = (SpuSaleAttrMapper) spuSaleAttrService.getBaseMapper();
+        //调用Mapper层，自定义SQL语句来查询当前商品所有的销售属性，并为其添加选中字段
+        return spuSaleAttrMapper.getSpuSaleAttrListCheckBySku(skuId, spuId);
     }
 
 

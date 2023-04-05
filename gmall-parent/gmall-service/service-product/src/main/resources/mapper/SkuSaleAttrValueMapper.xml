@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.atguigu.gmall.product.mapper.SkuSaleAttrValueMapper">
+
+    <!--返回的结果是Map，所以这里要写Map-->
+    <resultMap id="spuValueIdsMap" type="java.util.Map" autoMapping="true">
+
+    </resultMap>
+
+    <!--调用skuSaleAttrValueMapper，自定义SQL语句，获得{"3736|3738":"24","3736|3739":"25",}格式的数据实现商品切换⚠️-->
+    <select id="getSkuValueIdsMap" resultMap="spuValueIdsMap">
+        select ssav.sku_id,group_concat(ssav.sale_attr_value_id order by ssav.sale_attr_value_id separator '|') value_ids
+        from sku_sale_attr_value ssav
+        where ssav.spu_id = #{spuId}
+        group by ssav.sku_id
+    </select>
+
+</mapper>

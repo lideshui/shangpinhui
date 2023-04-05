@@ -38,5 +38,10 @@ public class BaseAttrInfo extends BaseEntity {
 	@TableField(exist = false)
 	private List<BaseAttrValue> attrValueList;
 
+	//后期添加的
+	@ApiModelProperty(value = "平台属性值名称")
+	@TableField(exist = false)
+	private String attrValue;
+
 }
 
