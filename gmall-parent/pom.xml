@@ -12,6 +12,7 @@
         <module>gmall-model</module>
         <module>gmall-service</module>
         <module>gmall-gateway</module>
+        <module>gmall-client</module>
     </modules>
 
     <!--所有工程的父工程-->
