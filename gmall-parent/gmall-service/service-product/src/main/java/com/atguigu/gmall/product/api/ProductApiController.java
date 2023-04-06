@@ -32,8 +32,8 @@ public class ProductApiController {
 
     //1。根据SkuID查询SKU商品信息包含图片列表
     @GetMapping("/inner/getSkuInfo/{skuId}")
-    public SkuInfo getSkuInfo(@PathVariable("skuId") Long skuId){
-        SkuInfo skuInfo = skuManageService.getSkuInfo(skuId);
+    public SkuInfo getSkuInfoAndImages(@PathVariable("skuId") Long skuId){
+        SkuInfo skuInfo = skuManageService.getSkuInfoAndImages(skuId);
         return skuInfo;
     }
 

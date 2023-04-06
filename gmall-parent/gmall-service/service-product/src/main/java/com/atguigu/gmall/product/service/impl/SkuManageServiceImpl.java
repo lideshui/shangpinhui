@@ -133,7 +133,7 @@ public class SkuManageServiceImpl implements SkuManageService {
 
     //根据SkuID查询SKU商品信息包含图片列表-product微服务远程调用接口⚠️
     @Override
-    public SkuInfo getSkuInfo(Long skuId) {
+    public SkuInfo getSkuInfoAndImages(Long skuId) {
         //通过id获取skuInfo对象判断有无该商品信息
         SkuInfo skuInfo = skuInfoService.getById(skuId);
         if (skuInfo!=null){

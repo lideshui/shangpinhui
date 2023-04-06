@@ -26,7 +26,7 @@ public interface SkuManageService {
     void cancelSale(Long skuId);
 
     //根据SkuID查询SKU商品信息包含图片列表-product微服务远程调用接口⚠️
-    SkuInfo getSkuInfo(Long skuId);
+    SkuInfo getSkuInfoAndImages(Long skuId);
 
     //根据商品SKU三级分类ID查询分类信息-product微服务远程调用接口⚠️
     BigDecimal getSkuPrice(Long skuId);
