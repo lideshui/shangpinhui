@@ -1,5 +1,6 @@
 package com.atguigu.gmall.product.client.impl;
 
+import com.alibaba.fastjson.JSONObject;
 import com.atguigu.gmall.product.client.ProductFeignClient;
 import com.atguigu.gmall.product.model.*;
 import org.springframework.stereotype.Component;
@@ -48,6 +49,11 @@ public class ProductDegradeFeignClient implements ProductFeignClient {
 
     @Override
     public String getSkuValueIdsMap(Long spuId) {
+        return null;
+    }
+
+    @Override
+    public List<JSONObject> getBaseCategoryList() {
         return null;
     }
 

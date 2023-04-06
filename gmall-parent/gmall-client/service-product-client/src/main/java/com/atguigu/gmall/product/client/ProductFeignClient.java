@@ -1,5 +1,6 @@
 package com.atguigu.gmall.product.client;
 
+import com.alibaba.fastjson.JSONObject;
 import com.atguigu.gmall.product.client.impl.ProductDegradeFeignClient;
 import com.atguigu.gmall.product.model.*;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -49,5 +50,9 @@ public interface ProductFeignClient {
     //获取每一组销售属性对应SkuID组合，来完成商品页切换，超级难SQL⚠️ {"3736|3738":"24","3736|3739":"25",}
     @GetMapping("/api/product/inner/getSkuValueIdsMap/{spuId}")
     public String getSkuValueIdsMap(@PathVariable("spuId") Long spuId);
+
+    //查询所有分类列表 分类嵌套结果:一级分类分类对象中包含二级分类集合;在二级分类对象中包含三级分类集合-商城首页产品分类使用⚠️
+    @GetMapping("/api/product/inner/getBaseCategoryList")
+    public List<JSONObject> getBaseCategoryList();
 
 }

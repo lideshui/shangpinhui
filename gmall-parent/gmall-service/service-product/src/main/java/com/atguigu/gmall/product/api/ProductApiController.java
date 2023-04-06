@@ -1,6 +1,7 @@
 package com.atguigu.gmall.product.api;
 
 
+import com.alibaba.fastjson.JSONObject;
 import com.atguigu.gmall.common.cache.GmallCache;
 import com.atguigu.gmall.product.model.*;
 import com.atguigu.gmall.product.service.BaseCategoryViewService;
@@ -78,5 +79,12 @@ public class ProductApiController {
         return skuManageService.getSkuValueIdsMap(spuId);
     }
 
+
+    //查询所有分类列表 分类嵌套结果:一级分类分类对象中包含二级分类集合;在二级分类对象中包含三级分类集合-商城首页产品分类使用⚠️
+    @GetMapping("/inner/getBaseCategoryList")
+    public List<JSONObject> getBaseCategoryList() {
+        List<JSONObject> list = baseCategoryViewService.getBaseCategoryList();;
+        return list;
+    }
 
 }
