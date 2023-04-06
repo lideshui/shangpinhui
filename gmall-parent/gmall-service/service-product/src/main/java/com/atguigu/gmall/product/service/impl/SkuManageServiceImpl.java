@@ -1,6 +1,7 @@
 package com.atguigu.gmall.product.service.impl;
 
 import com.alibaba.fastjson.JSON;
+import com.atguigu.gmall.common.constant.RedisConst;
 import com.atguigu.gmall.product.mapper.SkuAttrValueMapper;
 import com.atguigu.gmall.product.mapper.SkuSaleAttrValueMapper;
 import com.atguigu.gmall.product.mapper.SpuSaleAttrMapper;
@@ -11,13 +12,14 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 
 @Service
@@ -38,6 +40,9 @@ public class SkuManageServiceImpl implements SkuManageService {
 
     @Autowired
     SkuSaleAttrValueService skuSaleAttrValueService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
 
     //根据spuId 查询销售属性集合，创建SKU时候要用
@@ -131,9 +136,81 @@ public class SkuManageServiceImpl implements SkuManageService {
     }
 
 
-    //根据SkuID查询SKU商品信息包含图片列表-product微服务远程调用接口⚠️
+    //根据SkuID查询SKU商品信息包含图片列表-product微服务远程调用接口⚠️⚠️
+    /**
+     * Redis优化SpringDataRedis实现分布锁
+     * 优先从缓存中获取商品信息，缓存未命中，避免出现缓存击穿，分布式锁
+     *
+     * @param skuId
+     * @return
+     */
     @Override
     public SkuInfo getSkuInfoAndImages(Long skuId) {
+        try {
+            //1.优先从缓存中获取数据，如果命中缓存则直接返回，未命中-采用分布式锁避免缓存击穿
+            //1.1 构建商品详情key-缓存商品信息Key 形式： sku:29:info
+            String skuKey = RedisConst.SKUKEY_PREFIX + skuId + RedisConst.SKUKEY_SUFFIX;
+
+            //1.2 根据key查询缓存中商品数据
+            SkuInfo skuInfo = (SkuInfo) redisTemplate.opsForValue().get(skuKey);
+            if (skuInfo == null) {
+
+                //2.尝试获取锁  获取锁成功-执行数据库查询，有值：将查询结果放入缓存 没值：缓存空对象（暂存）
+                //2.1 为每个查询商品构建商品SKU锁Key值 形式：sku:29:lock  sku:30:lock
+                String lockKey = RedisConst.SKUKEY_PREFIX + skuId + RedisConst.SKULOCK_SUFFIX;
+                //2.2 构建锁的值UUID，并替换掉"-"符号
+                String uuid = UUID.randomUUID().toString().replace("-", "");
+                //2.3 调用redis执行set key val ex 10 nx 获取锁，仅在 key 不存在时才进行设置。如果 key 已经存在，则不进行任何操作⚠️
+                //方法：Boolean setIfAbsent()的四个参数分别为key、Value、过期时间、过期时间的单位⚠️
+                Boolean flag = redisTemplate.opsForValue().setIfAbsent(lockKey, uuid, RedisConst.SKULOCK_EXPIRE_PX1, TimeUnit.SECONDS);
+                //2.3.1 获取锁成功，执行业务（查询数据库，放入缓存）
+                if (flag) {
+                    //2.4 执行业务：查询数据库获取商品信息
+                    skuInfo = this.getSkuInfoAndImagesForDB(skuId);
+                    //2.4.1 数据库中本身不存在 短时间10分钟内缓存空对象防止缓存穿透,返回空对象⚠️
+                    if (skuInfo == null) {
+                        redisTemplate.opsForValue().set(skuKey, skuInfo, RedisConst.SKUKEY_TEMPORARY_TIMEOUT, TimeUnit.SECONDS);
+                        return skuInfo;
+                    }
+                    //2.4.2 数据库中有数据，将数据加入缓存，存储1天⚠️
+                    redisTemplate.opsForValue().set(skuKey, skuInfo, RedisConst.SKUKEY_TIMEOUT, TimeUnit.SECONDS);
+
+                    //2.5 将锁释放掉 保证删除原子性采用lua脚本
+                    String script = "if redis.call(\"get\",KEYS[1]) == ARGV[1]\n" +
+                            "then\n" +
+                            "    return redis.call(\"del\",KEYS[1])\n" +
+                            "else\n" +
+                            "    return 0\n" +
+                            "end";
+                    //Spring Data Redis 提供的一个创建 Redis 脚本对象的方式
+                    DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>();
+                    //Redis 脚本可以在 Redis 服务器端执行一段预先定义好的 Lua 脚本代码
+                    redisScript.setScriptText(script);
+                    //Spring Data Redis 提供的一个方法，用于设置 Redis 脚本执行后返回值的类型
+                    redisScript.setResultType(Long.class);
+                    //参数分别为Redis脚本对象、传递给Redis脚本的key列表、传递给Redis脚本的参数列表
+                    //Arrays.asList方法可以将一个数组转换成一个 List 集合对象⚠️
+                    redisTemplate.execute(redisScript, Arrays.asList(lockKey), uuid);
+                    return skuInfo;
+                } else {
+                    //2.3.2 获取锁失败，自旋等待下次获取-递归⚠️
+                    Thread.sleep(100);
+                    return this.getSkuInfoAndImages(skuId);
+                }
+            } else {
+                //命中缓存直接返回即可
+                return skuInfo;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        //兜底方案：查询数据库
+        return getSkuInfoAndImagesForDB(skuId);
+    }
+
+    //Redis优化SpringDataRedis实现分布锁-缓存中不存在时去数据库查询的方法⚠️⚠️
+    public SkuInfo getSkuInfoAndImagesForDB(Long skuId) {
         //通过id获取skuInfo对象判断有无该商品信息
         SkuInfo skuInfo = skuInfoService.getById(skuId);
         if (skuInfo!=null){
