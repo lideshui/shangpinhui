@@ -57,9 +57,18 @@
             <artifactId>service-item-client</artifactId>
             <version>1.0</version>
         </dependency>
+
+        <!--导入mybatis-plus模块-->
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-boot-starter</artifactId>
+        </dependency>
+
+        <!--OpenFeign远程调用-->
+        <dependency>
+            <groupId>com.atguigu.gmall</groupId>
+            <artifactId>service-product-client</artifactId>
+            <version>1.0</version>
         </dependency>
     </dependencies>
 

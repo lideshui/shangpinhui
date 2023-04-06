@@ -1,6 +1,7 @@
 package com.atguigu.gmall.product.service.impl;
 
 import com.alibaba.fastjson.JSONObject;
+import com.atguigu.gmall.common.cache.GmallCache;
 import com.atguigu.gmall.product.mapper.BaseCategoryViewMapper;
 import com.atguigu.gmall.product.model.BaseCategoryView;
 import com.atguigu.gmall.product.service.BaseCategoryViewService;
@@ -19,6 +20,8 @@ import java.util.stream.Collectors;
 @Service
 public class BaseCategoryViewServiceImpl extends ServiceImpl<BaseCategoryViewMapper,BaseCategoryView> implements BaseCategoryViewService {
 
+    //切面增强注解-Redis缓存🍀🍀🍀
+    @GmallCache(prefix = "baseCategoryList")
     //查询所有分类列表 分类嵌套结果:一级分类分类对象中包含二级分类集合;在二级分类对象中包含三级分类集合-商城首页产品分类使用⚠️
     @Override
     public List<JSONObject> getBaseCategoryList() {
