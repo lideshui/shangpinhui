@@ -1,36 +1,32 @@
-package com.atguigu.gmall.item;
+package com.atguigu.gmall.item.service.impl;
 
-import com.atguigu.gmall.common.result.Result;
+import com.atguigu.gmall.common.constant.RedisConst;
+import com.atguigu.gmall.item.service.ItemService;
 import com.atguigu.gmall.product.client.ProductFeignClient;
 import com.atguigu.gmall.product.model.*;
 import org.apache.commons.lang.StringUtils;
+import org.redisson.api.RBloomFilter;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-/**
- * 通过Feign接口，远程调用商品详情的七个接口，进行数据汇总的类，在请求URL中传入SKU的ID即可
- */
-
-@RestController
-@RequestMapping("/api/item")
-//去掉警告的下划线
-@SuppressWarnings("all")
-public class ItemController {
+@Service
+public class ItemServiceImpl implements ItemService {
 
     @Autowired
     private ProductFeignClient productFeignClient;
 
+    @Autowired
+    private RedissonClient redissonClient;
+
 
     /**
-     * 提供给前端服务调用RestFul接口实现,汇总商品详情页所需7项数据
+     * 汇总商品详情页所需数据
      *
      * @param skuId - **skuInfo**：当前商品SKU信息包含SKU图片列表
      *              - **categoryView**：当前商品所属的分类信息（包含三级）
@@ -39,16 +35,26 @@ public class ItemController {
      *              - **skuAttrList**：当前商品平台属性及属性值集合--- 规格与参数
      *              - **spuSaleAttrList**：当前商品销售属性集合选中效果
      *              - **valuesSkuJson**：切换SKU转换SKU商品json字符串信息
+     * @param skuId
      * @return
      */
-    @GetMapping("/{skuId}")
-    public Result getItemAllData(@PathVariable("skuId") Long skuId) {
+    @Override
+    public Map<String, Object> getItemAllData(Long skuId) {
+        //创建存储响应结果的Map数组
         HashMap<String, Object> data = new HashMap<>();
+
+        //0.判断用户要查询的商品是否不存在,如果不存在直接返回null，开发阶段为了方便测试可以暂时注释，测试阶段再放开🍀🍀🍀
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(RedisConst.SKU_BLOOM_FILTER);
+        if (!bloomFilter.contains(skuId)) {
+            return data;
+        }
+
         //1.远程调用商品服务-根据skuID查询商品sku信息
         SkuInfo skuInfo = productFeignClient.getSkuInfoAndImages(skuId);
         if (skuInfo != null) {
             data.put("skuInfo", skuInfo);
         }
+
         //2.根据商品Sku三家分类ID查询分类信息
         BaseCategoryView categoryView = productFeignClient.getCategoryView(skuInfo.getCategory3Id());
         if (categoryView != null) {
@@ -85,6 +91,6 @@ public class ItemController {
         if(StringUtils.isNotBlank(valuesSkuJson)){
             data.put("valuesSkuJson", valuesSkuJson);
         }
-        return Result.ok(data);
+        return data;
     }
 }

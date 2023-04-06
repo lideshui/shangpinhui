@@ -12,6 +12,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.redisson.api.RBloomFilter;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -96,11 +97,17 @@ public class SkuManageServiceImpl implements SkuManageService {
         List<SkuSaleAttrValue> skuSaleAttrValueList = skuInfo.getSkuSaleAttrValueList();
         if (!CollectionUtils.isEmpty(skuSaleAttrValueList)) {
             skuSaleAttrValueList.stream().forEach(skuSaleAttrValue -> {
+                //销售属性关联SKU
                 skuSaleAttrValue.setSkuId(skuInfo.getId());
+                //销售属性关联SPU
                 skuSaleAttrValue.setSpuId(skuInfo.getSpuId());
             });
             skuSaleAttrValueService.saveBatch(skuSaleAttrValueList);
         }
+
+        //5。先获取布隆过滤器，再将保持的商品skuID存入布隆过滤器🍀🍀🍀
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(RedisConst.SKU_BLOOM_FILTER);
+        bloomFilter.add(skuInfo.getId());
     }
 
 
