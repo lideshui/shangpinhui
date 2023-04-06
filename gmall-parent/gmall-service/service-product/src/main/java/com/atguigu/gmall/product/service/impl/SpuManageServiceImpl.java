@@ -1,5 +1,6 @@
 package com.atguigu.gmall.product.service.impl;
 
+import com.atguigu.gmall.common.cache.GmallCache;
 import com.atguigu.gmall.product.mapper.SpuSaleAttrMapper;
 import com.atguigu.gmall.product.model.*;
 import com.atguigu.gmall.product.service.*;
@@ -124,6 +125,8 @@ public class SpuManageServiceImpl implements SpuManageService {
     }
 
 
+    //切面增强注解-Redis缓存🍀🍀🍀
+    @GmallCache(prefix = "spuPosterBySpuId:")
     //根据spuId 获取海报数据-product微服务远程调用接口⚠️
     @Override
     public List<SpuPoster> getSpuPosterBySpuId(Long spuId) {
@@ -133,6 +136,8 @@ public class SpuManageServiceImpl implements SpuManageService {
     }
 
 
+    //切面增强注解-Redis缓存🍀🍀🍀
+    @GmallCache(prefix = "spuSaleAttrListCheckBySku:", suffix = ":info")
     //查询当前商品所有的销售属性,判断为当前SKU拥有销售属性增加选中效果-product微服务远程调用接口⚠️
     @Override
     public List<SpuSaleAttr> getSpuSaleAttrListCheckBySku(Long skuId, Long spuId) {

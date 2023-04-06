@@ -1,6 +1,7 @@
 package com.atguigu.gmall.product.service.impl;
 
 import com.alibaba.fastjson.JSON;
+import com.atguigu.gmall.common.cache.GmallCache;
 import com.atguigu.gmall.common.constant.RedisConst;
 import com.atguigu.gmall.product.mapper.SkuAttrValueMapper;
 import com.atguigu.gmall.product.mapper.SkuSaleAttrValueMapper;
@@ -141,73 +142,11 @@ public class SkuManageServiceImpl implements SkuManageService {
     }
 
 
-    //根据SkuID查询SKU商品信息包含图片列表-product微服务远程调用接口⚠️⚠️
-    /**
-     * Redis优化SpringDataRedis实现分布锁
-     * 优先从缓存中获取商品信息，缓存未命中，避免出现缓存击穿，分布式锁
-     *
-     * @param skuId
-     * @return
-     */
+    //切面增强注解-Redis缓存🍀🍀🍀
+    @GmallCache(prefix = RedisConst.SKUKEY_PREFIX, suffix = RedisConst.SKUKEY_SUFFIX)
+    //根据SkuID查询SKU商品信息包含图片列表-product微服务远程调用接口⚠️
     @Override
     public SkuInfo getSkuInfoAndImages(Long skuId) {
-        try {
-            //1.优先从缓存中获取数据，如果命中缓存则直接返回，未命中-采用分布式锁避免缓存击穿
-            //1.1 构建商品商品信息Key 形式：sku:29:info
-            String skuKey = RedisConst.SKUKEY_PREFIX + skuId + RedisConst.SKUKEY_SUFFIX;
-            //1.2 从缓存中获取商品信息 结果 命中缓存：直接返回  未命中 执行第二步
-            SkuInfo skuInfo = (SkuInfo) redisTemplate.opsForValue().get(skuKey);
-            if (skuInfo == null) {
-
-                //2.尝试获取锁  获取锁成功-执行数据库查询，有值：将查询结果放入缓存 没值：缓存空对象（暂存）
-                //2.1 为每个商品声明锁的Key 形式：sku:29:lock
-                String lockKey = RedisConst.SKUKEY_PREFIX + skuId + RedisConst.SKULOCK_SUFFIX;
-                //2.2通过RedissonClient对象创建可重入锁对象
-                RLock lock = redissonClient.getLock(lockKey);
-
-                //2.3尝试获取锁 结果  获取锁成功：执行业务（查询数据库 有值：放入缓存 没值：缓存空对象） 释放锁
-                //尝试非阻塞地获取锁，如果可以获取到锁则返回 true，否则立即返回 false。
-                //三个参数分别为，第一个是尝试获取锁的时间，到达该时间后会获取锁失败返回False，进入自旋；第二个是锁的过期时间；第三个是时间单位⚠️⚠️⚠️
-                boolean flag = lock.tryLock(RedisConst.SKULOCK_EXPIRE_PX1, RedisConst.SKULOCK_EXPIRE_PX2, TimeUnit.SECONDS);
-                //2.3.1 获取锁成功 查库缓存 释放锁
-                if (flag) {
-                    try {
-                        //2.3.2 查询数据库
-                        skuInfo = this.getSkuInfoAndImagesForDB(skuId);
-                        //2.3.2.1 没值 缓存空对象防止缓存穿透，但是随机穿透还是要用布隆过滤器解决⚠️
-                        if (skuInfo == null) {
-                            redisTemplate.opsForValue().set(skuKey, skuInfo, RedisConst.SKUKEY_TEMPORARY_TIMEOUT, TimeUnit.SECONDS);
-                            return skuInfo;
-                        }
-                        //2.3.2.2 有值：将数据放入缓存
-                        redisTemplate.opsForValue().set(skuKey, skuInfo, RedisConst.SKUKEY_TIMEOUT, TimeUnit.SECONDS);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    } finally {
-                        //2.3.3 释放锁
-                        lock.unlock();
-                    }
-                    return skuInfo;
-                } else {
-                    //2.2.2 获取锁失败 自旋下次重试
-                    Thread.sleep(200);
-                    return this.getSkuInfoAndImages(skuId);
-                }
-            } else {
-                //命中缓存则直接返回
-                return skuInfo;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        //兜底方案：查询数据库
-        return getSkuInfoAndImagesForDB(skuId);
-    }
-
-
-    //Redis优化SpringDataRedis实现分布锁-缓存中不存在时去数据库查询的方法⚠️⚠️
-    public SkuInfo getSkuInfoAndImagesForDB(Long skuId) {
         //通过id获取skuInfo对象判断有无该商品信息
         SkuInfo skuInfo = skuInfoService.getById(skuId);
         if (skuInfo!=null){
@@ -222,16 +161,40 @@ public class SkuManageServiceImpl implements SkuManageService {
     }
 
 
+    //一定要注意，我们的价格每次查询的时候不能从缓存中取，要直接从数据库查，所以价格我们只添加分布式锁而不添加缓存🍀🍀🍀
     //根据商品SKU三级分类ID查询分类信息-product微服务远程调用接口⚠️
     @Override
     public BigDecimal getSkuPrice(Long skuId) {
-        LambdaQueryWrapper<SkuInfo> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(SkuInfo::getId,skuId);
-        SkuInfo skuInfo = skuInfoService.getOne(queryWrapper);
-        return skuInfo.getPrice();
+        //1.避免出现缓存击穿
+        //1.1 构建锁的key
+        String lockKey = "sku:price:" + skuId + ":lock";
+
+        //1.2 创建锁对象
+        RLock lock = redissonClient.getLock(lockKey);
+        try {
+
+            //1.3 获取锁
+            lock.lock();
+            //select price from sku_info where id = 29;
+            LambdaQueryWrapper<SkuInfo> queryWrapper = new LambdaQueryWrapper<>();
+            //设置查询条件
+            queryWrapper.eq(SkuInfo::getId, skuId);
+            //设置查询字段
+            queryWrapper.select(SkuInfo::getPrice);
+            SkuInfo skuInfo = skuInfoService.getOne(queryWrapper);
+            if (skuInfo != null) {
+                return skuInfo.getPrice();
+            }
+            return new BigDecimal("0");
+        } finally {
+            //1.4 释放锁
+            lock.unlock();
+        }
     }
 
 
+    //切面增强注解-Redis缓存🍀🍀🍀
+    @GmallCache(prefix = "attrList:")
     //根据SkuID查询当前商品包含平台属性以及属性值-product微服务远程调用接口⚠️
     @Override
     public List<BaseAttrInfo> getAttrList(Long skuId) {
@@ -251,6 +214,8 @@ public class SkuManageServiceImpl implements SkuManageService {
     }
 
 
+    //切面增强注解-Redis缓存🍀🍀🍀
+    @GmallCache(prefix = "skuValueIdsMap:")
     //获取每一组销售属性对应SkuID组合，来完成商品页切换-product微服务远程调用接口⚠️
     @Override
     public String getSkuValueIdsMap(Long spuId) {

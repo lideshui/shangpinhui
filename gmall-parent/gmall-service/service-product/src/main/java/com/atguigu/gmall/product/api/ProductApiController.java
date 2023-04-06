@@ -1,6 +1,7 @@
 package com.atguigu.gmall.product.api;
 
 
+import com.atguigu.gmall.common.cache.GmallCache;
 import com.atguigu.gmall.product.model.*;
 import com.atguigu.gmall.product.service.BaseCategoryViewService;
 import com.atguigu.gmall.product.service.SkuManageService;
@@ -37,6 +38,8 @@ public class ProductApiController {
         return skuInfo;
     }
 
+    //切面增强注解-Redis缓存🍀🍀🍀
+    @GmallCache(prefix = "categoryView")
     //2。根据商品SKU三级分类ID查询分类信息
     @GetMapping("/inner/getCategoryView/{category3Id}")
     public BaseCategoryView getCategoryView(@PathVariable("category3Id") Long category3Id) {
@@ -44,10 +47,12 @@ public class ProductApiController {
     }
 
     //3。根据SKUID查询商品最新价格-下单时必需实时查询，不可从缓存中获取⚠️⚠️⚠️
+    //尽管SkuInfo中已经有价格了，但他会存到缓存里，是我们还是必需再查一次实时最新价格⚠️
     @GetMapping("/inner/getSkuPrice/{skuId}")
     public BigDecimal getSkuPrice(@PathVariable("skuId") Long skuId){
         return skuManageService.getSkuPrice(skuId);
     }
+
 
     //4。根据spuId 获取海报数据
     @GetMapping("inner/findSpuPosterBySpuId/{spuId}")

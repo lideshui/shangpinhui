@@ -56,6 +56,7 @@ public class ItemController {
         }
 
         //3.根据SKuID查询价格
+        //尽管SkuInfo中已经有价格了，但他会存到缓存里，是我们还是必需再查一次实时最新价格⚠️
         BigDecimal price = productFeignClient.getSkuPrice(skuId);
         if (price != null) {
             data.put("price", price);
