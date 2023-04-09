@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.atguigu.gmall.common.cache.GmallCache;
 import com.atguigu.gmall.product.model.*;
 import com.atguigu.gmall.product.service.BaseCategoryViewService;
+import com.atguigu.gmall.product.service.BaseTrademarkService;
 import com.atguigu.gmall.product.service.SkuManageService;
 import com.atguigu.gmall.product.service.SpuManageService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,9 @@ public class ProductApiController {
 
     @Autowired
     private SpuManageService spuManageService;
+
+    @Autowired
+    private BaseTrademarkService baseTrademarkService;
 
 
     //1。根据SkuID查询SKU商品信息包含图片列表
@@ -85,6 +89,16 @@ public class ProductApiController {
     public List<JSONObject> getBaseCategoryList() {
         List<JSONObject> list = baseCategoryViewService.getBaseCategoryList();;
         return list;
+    }
+
+
+    //切面增强注解-Redis缓存🍀🍀🍀
+    //根据品牌ID查询品牌信息-ES的索引库对象Goods缺少该项数据，所以需要实现该接口并放缓存中🔍🔍🔍
+    @GetMapping("/inner/getTrademark/{tmId}")
+    @GmallCache(prefix = "trademark:")
+    public BaseTrademark getTrademarkById(@PathVariable("tmId") Long tmId) {
+        BaseTrademark trademark = baseTrademarkService.getById(tmId);
+        return trademark;
     }
 
 }

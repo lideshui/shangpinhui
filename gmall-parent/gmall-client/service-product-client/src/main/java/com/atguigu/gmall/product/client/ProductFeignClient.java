@@ -55,4 +55,8 @@ public interface ProductFeignClient {
     @GetMapping("/api/product/inner/getBaseCategoryList")
     public List<JSONObject> getBaseCategoryList();
 
+    //根据品牌ID查询品牌信息-ES的索引库对象Goods缺少该项数据，所以需要实现该接口并放缓存中🔍🔍🔍
+    @GetMapping("/api/product/inner/getTrademark/{tmId}")
+    public BaseTrademark getTrademarkById(@PathVariable("tmId") Long tmId);
+
 }
