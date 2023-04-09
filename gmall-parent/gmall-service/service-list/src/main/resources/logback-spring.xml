@@ -3,7 +3,7 @@
 
     <contextName>logback</contextName>
 
-    <!-- 日志的输出目录 -->
+    <!-- 日志的输出目录⚠️⚠️⚠️-->
     <property name="log.path" value="/Users/shuaigouzi/Downloads/logs" />
 
     <!--控制台日志格式：彩色日志-->
@@ -12,6 +12,7 @@
     <!-- cyan:青色 -->
     <!-- white:白色 -->
     <!-- magenta:洋红 -->
+    
     <property name="CONSOLE_LOG_PATTERN"
               value="%yellow(%date{yyyy-MM-dd HH:mm:ss}) %highlight([%-5level]) %green(%logger) %msg%n"/>
 
