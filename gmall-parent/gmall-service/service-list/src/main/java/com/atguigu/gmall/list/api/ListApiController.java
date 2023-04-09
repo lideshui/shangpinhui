@@ -46,4 +46,12 @@ public class ListApiController {
         searchService.lowerGoods(skuId);
         return Result.ok();
     }
+
+
+    //更新商品的热度排名分值，通过Redis的ZSet数据类型实现，提供给service-item服务调用，用户访问该sku时分值+1，满足十次同步到goods索引库🍀🍀🍀
+    @GetMapping("/inner/incrHotScore/{skuId}")
+    public Result incrHotScore(@PathVariable("skuId") Long skuId){
+        searchService.incrHotScore(skuId);
+        return Result.ok();
+    }
 }

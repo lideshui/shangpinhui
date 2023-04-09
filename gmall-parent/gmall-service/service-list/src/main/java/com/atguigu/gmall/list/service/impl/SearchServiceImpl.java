@@ -10,7 +10,10 @@ import com.atguigu.gmall.product.model.BaseTrademark;
 import com.atguigu.gmall.product.model.SkuInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.delete.DeleteRequest;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
@@ -165,5 +168,49 @@ public class SearchServiceImpl implements SearchService {
         }
     }
 
+
+    /**
+     * 使用 Redis + ZSet 实现更新商品的热度排名🍀🍀🍀
+     * 提供给service-item服务调用，用户访问该sku时分值+1
+     * 每次调用都判断是否为十的倍数，满足条件才更新goods索引库🔍🔍🔍
+     *
+     * @param skuId
+     */
+    @Override
+    public void incrHotScore(Long skuId) {
+        try {
+            //1 根据skuID获取缓存中商品热度分值，对结果进行自增+1
+            //1.1 构建ZSet排名Key
+            String hotKey = "hotScore";
+            //1.2 调用自增分值+1方法为查询商品增加分值，注意这里的ID需要转成String
+            Double score = redisTemplate.opsForZSet().incrementScore(hotKey, skuId.toString(), 1);
+
+            //2。根据skuID更新ES索引库中的排名分值，怕影响效率，所以每次上升到10的倍数时才进行更新
+            if (score % 10 == 0) {
+                //2.1 根据索引库主键ID查询商品文档
+                GetRequest getRequest = new GetRequest(INDEX_NAME, skuId.toString());
+                GetResponse response = restHighLevelClient.get(getRequest, RequestOptions.DEFAULT);
+                //取出查询到的数据，因为数据都存储在_source中
+                String sourceAsString = response.getSourceAsString();
+                //将JSON转换为Object
+                Goods goods = JSON.parseObject(sourceAsString, Goods.class);
+                if (goods != null) {
+                    //重新修改排名分数
+                    goods.setHotScore(score.longValue());
+
+                    //2.2 修改索引库文档，注意别导错包⚠️
+                    UpdateRequest updateRequest = new UpdateRequest(INDEX_NAME, skuId.toString());
+                    //将goods对象转换为Json构建修改es对象
+                    updateRequest.doc(JSON.toJSONString(goods), XContentType.JSON);
+                    //执行修改操作
+                    restHighLevelClient.update(updateRequest, RequestOptions.DEFAULT);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            log.error("[更新文档热度分值失败:{}]", e);
+        }
+
+    }
 
 }

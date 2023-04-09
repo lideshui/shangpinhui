@@ -2,6 +2,7 @@ package com.atguigu.gmall.item.service.impl;
 
 import com.atguigu.gmall.common.constant.RedisConst;
 import com.atguigu.gmall.item.service.ItemService;
+import com.atguigu.gmall.list.client.ListFeignClient;
 import com.atguigu.gmall.product.client.ProductFeignClient;
 import com.atguigu.gmall.product.model.*;
 import org.apache.commons.lang.StringUtils;
@@ -28,6 +29,9 @@ public class ItemServiceImpl implements ItemService {
 
     @Autowired
     private ThreadPoolExecutor executor;
+
+    @Autowired
+    private ListFeignClient listFeignClient;
 
 
     /**
@@ -93,7 +97,6 @@ public class ItemServiceImpl implements ItemService {
         }), executor);
 
 
-
         //5.根据SkuID查询商品平台属性列表
         CompletableFuture<Void> skuAttrListCompletableFuture = CompletableFuture.runAsync(() -> {
             List<BaseAttrInfo> attrList = productFeignClient.getAttrList(skuId);
@@ -118,7 +121,12 @@ public class ItemServiceImpl implements ItemService {
             if (StringUtils.isNotBlank(valuesSkuJson)) {
                 data.put("valuesSkuJson", valuesSkuJson);
             }
+        }, executor);
 
+
+        //8.远程调用搜索微服务，当用户搜索该sku时会通过Redis+ZSet，更新ES索引库中商品文档热门分值
+        CompletableFuture<Void> incrHotScoreCompletableFuture = CompletableFuture.runAsync(() -> {
+            listFeignClient.incrHotScore(skuId);
         }, executor);
 
 
@@ -130,7 +138,8 @@ public class ItemServiceImpl implements ItemService {
                 spuSaleAttrListCompletableFuture,
                 valuesSkuJsonCompletableFuture,
                 priceCompletableFuture,
-                skuAttrListCompletableFuture
+                skuAttrListCompletableFuture,
+                incrHotScoreCompletableFuture
         ).join();
         return data;
     }
