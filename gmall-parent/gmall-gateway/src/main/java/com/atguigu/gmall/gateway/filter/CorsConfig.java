@@ -1,4 +1,4 @@
-package com.atguigu.gmall.filter;
+package com.atguigu.gmall.gateway.filter;
 
 
 import org.springframework.context.annotation.Bean;
