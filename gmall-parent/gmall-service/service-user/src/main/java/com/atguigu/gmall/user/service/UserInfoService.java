@@ -12,4 +12,17 @@ import javax.servlet.http.HttpServletRequest;
 
 public interface UserInfoService extends IService<UserInfo> {
 
+    /**
+     * 用户登录接口，也可提供给PC端小程序端使用
+     *
+     * @param loginUser
+     */
+    Result login(UserInfo loginUser, HttpServletRequest request);
+
+    /**
+     * 用户退出系统
+     *
+     * @param token
+     */
+    void logout(String token);
 }
