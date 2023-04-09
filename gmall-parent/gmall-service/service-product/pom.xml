@@ -17,6 +17,13 @@
             <artifactId>minio</artifactId>
             <version>8.2.0</version>
         </dependency>
+
+        <!--ES搜索模块-远程Feign接口-->
+        <dependency>
+            <groupId>com.atguigu.gmall</groupId>
+            <artifactId>service-list-client</artifactId>
+            <version>1.0</version>
+        </dependency>
     </dependencies>
 
 

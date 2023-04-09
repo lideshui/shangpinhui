@@ -2,13 +2,12 @@ package com.atguigu.gmall.list.api;
 
 import com.atguigu.gmall.common.result.Result;
 import com.atguigu.gmall.list.model.Goods;
+import com.atguigu.gmall.list.model.SearchParam;
+import com.atguigu.gmall.list.model.SearchResponseVo;
 import com.atguigu.gmall.list.service.SearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("api/list")
@@ -53,5 +52,13 @@ public class ListApiController {
     public Result incrHotScore(@PathVariable("skuId") Long skuId){
         searchService.incrHotScore(skuId);
         return Result.ok();
+    }
+
+
+    //首页的商品检索，通过搜索条件去ES索引库中查询对应的商品信息🔍🔍🔍
+    @PostMapping("/inner")
+    public Result search(@RequestBody SearchParam searchParam) {
+        SearchResponseVo responseVo = searchService.search(searchParam);
+        return Result.ok(responseVo);
     }
 }

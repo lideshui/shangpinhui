@@ -15,4 +15,19 @@ public class ListDegradeFeignClient implements ListFeignClient {
         return null;
     }
 
+    @Override
+    public Result<Map> search(SearchParam searchParam) {
+        return null;
+    }
+
+    @Override
+    public Result upperGoods(Long skuId) {
+        return null;
+    }
+
+    @Override
+    public Result lowerGoods(Long skuId) {
+        return null;
+    }
+
 }

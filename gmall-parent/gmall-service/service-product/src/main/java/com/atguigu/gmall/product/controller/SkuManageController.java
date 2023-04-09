@@ -1,6 +1,7 @@
 package com.atguigu.gmall.product.controller;
 
 import com.atguigu.gmall.common.result.Result;
+import com.atguigu.gmall.list.client.ListFeignClient;
 import com.atguigu.gmall.product.model.*;
 import com.atguigu.gmall.product.service.SkuManageService;
 import com.atguigu.gmall.product.service.SpuImageService;
@@ -22,6 +23,9 @@ public class SkuManageController {
 
     @Autowired
     private SpuImageService spuImageService;
+
+    @Autowired
+    private ListFeignClient listFeignClient;
 
 
     //根据商品SPUID查询销售属性名称以及值，创建SKU时候要用
@@ -61,17 +65,20 @@ public class SkuManageController {
     }
 
 
-    //sku上架-目前先简单写一下，后期会修改
+    //sku上架-调用service-list的Feign接口，将上架的商品添加到ES索引库🔍🔍🔍
     @GetMapping("/onSale/{skuId}")
     public Result onSale(@PathVariable("skuId") Long skuId){
         skuManageService.onSale(skuId);
+        listFeignClient.upperGoods(skuId);
         return Result.ok();
     }
 
-    //sku下架-目前先简单写一下，后期会修改
+
+    //sku下架-调用service-list的Feign接口，将下架的商品从ES索引库中删除🔍🔍🔍
     @GetMapping("/cancelSale/{skuId}")
     public Result cancelSale(@PathVariable("skuId") Long skuId){
         skuManageService.cancelSale(skuId);
+        listFeignClient.lowerGoods(skuId);
         return Result.ok();
     }
 
