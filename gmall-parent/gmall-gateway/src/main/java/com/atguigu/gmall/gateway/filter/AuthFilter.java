@@ -112,7 +112,7 @@ public class AuthFilter implements GlobalFilter, Ordered {
             request.mutate().header("userId", userId);
         }
 
-        //获取临时用户ID，将获取到的User临时ID存储到请求头中
+        //获取临时用户ID，将获取到的User临时ID存储到请求头中-将用户ID传输到目标微服务
         String userTempId = getUserTempId(request);
         if (StringUtils.isNotBlank(userTempId)){
             request.mutate().header("userTempId", userTempId);
@@ -226,6 +226,9 @@ public class AuthFilter implements GlobalFilter, Ordered {
 
     /**
      * 尝试获取临时用户ID
+     * 1. 添加购物车，用户可以不需要登录，如果用户没有登录，则生成临时用户id，购物车商品与临时用户id关联
+     * 2. 当用户登录后，将临时用户id的购物车商品与登录用户id的商品合并
+     *
      */
     private String getUserTempId(ServerHttpRequest request) {
         String userTempId;
