@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -194,6 +195,36 @@ public class CartServiceImpl implements CartService {
         BoundHashOperations<String, String, CartInfo> hashOps = redisTemplate.boundHashOps(cartKey);
         //删除购物车商品
         hashOps.delete(skuId.toString());
+    }
+
+
+    /**
+     * 根据用户ID查询用户购物车中已勾选的商品列表为创建订单准备数据-从Redis中查🍀🍀🍀
+     *
+     * @param userId
+     */
+    @Override
+    public List<CartInfo> getCartCheckedList(Long userId) {
+        //1.构建查询购物车Hash结构的redisKey
+        String cartKey = getCartKey(userId.toString());
+
+        //2.查询用户所有的购物车商品
+        //根据redisKey创建该key的操作对象
+        BoundHashOperations<String, String, CartInfo> hashOps = redisTemplate.boundHashOps(cartKey);
+        //获取所有属性值，即当前登陆用户的商品加购列表⚠️
+        List<CartInfo> cartInfoList = hashOps.values();
+
+        //3.过滤商品为选中的商品，注意掌握stream的filter用法⚠️
+        if(!CollectionUtils.isEmpty(cartInfoList)){
+            List<CartInfo> cartCheckedList = cartInfoList.stream().filter(cartInfo -> {
+                //过滤条件 购物车对象中 isChecked 为1 则为选中的符合条件的商品
+                return cartInfo.getIsChecked() == 1;
+                //收集购物车中被选中的商品
+            }).collect(Collectors.toList());
+            //直接返回被选中的商品集合
+            return cartCheckedList;
+        }
+        return null;
     }
 
 

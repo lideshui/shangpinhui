@@ -114,4 +114,15 @@ public class CarApiController {
         return Result.ok();
     }
 
+
+    /**
+     * 根据用户ID查询用户购物车中已勾选的商品列表为创建订单准备数据-从Redis中查🍀🍀🍀
+     *
+     * @param userId
+     */
+    @GetMapping("/getCartCheckedList/{userId}")
+    public List<CartInfo> getCartCheckedList(@PathVariable("userId") Long userId){
+        List<CartInfo> list = cartService.getCartCheckedList(userId);
+        return list;
+    }
 }
