@@ -10,9 +10,10 @@ import java.util.Map;
 
 public interface OrderInfoService extends IService<OrderInfo> {
 
-    /**
-     * 订单确认页面数据模型汇总
-     */
+    //订单确认页面数据模型汇总
     Map<String, Object> tradeDatas(String userId);
+
+    //在订单确认页面保存订单，响应成功保存的订单的ID
+    Long submitOrder(OrderInfo orderInfo, String tradeNo);
 
 }

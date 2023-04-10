@@ -33,4 +33,23 @@ public class OrderApiController {
         return Result.ok(mapData);
     }
 
+
+    /**
+     * 在订单确认页面保存订单，响应成功保存的订单的ID
+     *
+     * @param orderInfo
+     * @return
+     */
+    @PostMapping("/auth/submitOrder")
+    public Result<Long> submitOrder(HttpServletRequest request, @RequestBody OrderInfo orderInfo) {
+        //1.获取用户ID，设置到OrderInfo中
+        String userId = AuthContextHolder.getUserId(request);
+        orderInfo.setUserId(Long.valueOf(userId));
+
+        //2.获取前端页面提交的流水号，和订单信息一块传给service层
+        String tradeNo = request.getParameter("tradeNo");
+        Long orderId = orderInfoService.submitOrder(orderInfo, tradeNo);
+        return Result.ok(orderId);
+    }
+
 }

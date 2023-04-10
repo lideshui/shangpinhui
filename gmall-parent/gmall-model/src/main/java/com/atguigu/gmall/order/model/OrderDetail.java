@@ -62,4 +62,12 @@ public class OrderDetail extends BaseEntity {
     @TableField("split_coupon_amount")
     private BigDecimal splitCouponAmount;
 
+    @ApiModelProperty(value = "订单来源类型 商城订单:MALL  秒杀订单:SECKILL")
+    @TableField("source_type")
+    private String sourceType;
+
+    @ApiModelProperty(value = "订单来源类型 1:商城订单 2:秒杀订单")
+    @TableField("source_id")
+    private Long sourceId;
+
 }
