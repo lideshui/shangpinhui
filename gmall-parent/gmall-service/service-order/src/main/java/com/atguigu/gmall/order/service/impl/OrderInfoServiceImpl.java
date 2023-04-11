@@ -27,6 +27,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -53,6 +55,9 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
     //仓库管理系统调用接口基础地址
     @Value("${ware.url}")
     private String wareUrl;
+
+    @Autowired
+    private ThreadPoolExecutor executor;
 
     /**
      * 汇总订单确认页面需要5个参数
@@ -176,35 +181,56 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         //创建错误信息存储数组
         List<String> errorMessage = new ArrayList<>();
 
+        //声明集合存放异步任务-异步编排优化保存订单🌿🌿🌿
+        List<CompletableFuture> completableFuturesList = new ArrayList<>();
+
         //如果当前订单内的商品数量不为空，就开始验证库存和价格
         if (!CollectionUtils.isEmpty(orderDetailList)) {
             //遍历过程中判断每个商品库存以及价格是否合法
             orderDetailList.stream().forEach(orderDetail -> {
                 //2.2调用第三方库存系统(仓储服务)接口进行验证商品库存
-                boolean hashStock = this.checkStock(orderDetail.getSkuId(), orderDetail.getSkuNum());
-                if (!hashStock) {
-                    //如果库存数量不足，则向错误信息集合添加错误信息
-                    errorMessage.add("商品:" + orderDetail.getSkuName() + "库存不足!");
-                }
+
+                //异步编排优化🌿🌿🌿
+                CompletableFuture<Void> stockCompletableFuture = CompletableFuture.runAsync(() -> {
+                    boolean hashStock = this.checkStock(orderDetail.getSkuId(), orderDetail.getSkuNum());
+                    if (!hashStock) {
+                        //如果库存数量不足，则向错误信息集合添加错误信息
+                        errorMessage.add("商品:" + orderDetail.getSkuName() + "库存不足!");
+                    }
+                }, executor);
+                //将异步任务加入到集合🌿🌿🌿
+                completableFuturesList.add(stockCompletableFuture);
 
                 //3. 调用商品微服务获取商品最新价格，验证商品价格是否发生变化
-                BigDecimal skuPrice = productFeignClient.getSkuPrice(orderDetail.getSkuId());
-                //如果商品价格发生了变化
-                if (orderDetail.getOrderPrice().compareTo(skuPrice) != 0) {
-                    //3.1 将Redis缓存中的购物车中商品价格改为最新
-                    String cartKey = RedisConst.USER_KEY_PREFIX + userId + RedisConst.USER_CART_KEY_SUFFIX;
-                    BoundHashOperations<String, String, CartInfo> hashOps = redisTemplate.boundHashOps(cartKey);
-                    //先查询，再修改
-                    CartInfo cartInfo = hashOps.get(orderDetail.getSkuId().toString());
-                    //设置最新价格
-                    cartInfo.setSkuPrice(skuPrice);
-                    //更新Redis中购物车中商品的数据
-                    hashOps.put(cartInfo.getSkuId().toString(), cartInfo);
-                    //向错误信息集合添加错误信息
-                    errorMessage.add("商品:" + orderDetail.getSkuName() + "价格已失效!");
-                }
+                //异步编排优化🌿🌿🌿
+                CompletableFuture<Void> priceCompletableFuture = CompletableFuture.runAsync(() -> {
+                    //远程调用Feign接口获取商品最新价格⚠️
+                    BigDecimal skuPrice = productFeignClient.getSkuPrice(orderDetail.getSkuId());
+                    //如果商品价格发生了变化
+                    if (orderDetail.getOrderPrice().compareTo(skuPrice) != 0) {
+                        //3.1 将Redis缓存中的购物车中商品价格改为最新
+                        String cartKey = RedisConst.USER_KEY_PREFIX + userId + RedisConst.USER_CART_KEY_SUFFIX;
+                        BoundHashOperations<String, String, CartInfo> hashOps = redisTemplate.boundHashOps(cartKey);
+                        //先查询，再修改
+                        CartInfo cartInfo = hashOps.get(orderDetail.getSkuId().toString());
+                        //设置最新价格
+                        cartInfo.setSkuPrice(skuPrice);
+                        //更新Redis中购物车中商品的数据
+                        hashOps.put(cartInfo.getSkuId().toString(), cartInfo);
+                        //向错误信息集合添加错误信息
+                        errorMessage.add("商品:" + orderDetail.getSkuName() + "价格已失效!");
+                    }
+                }, executor);
+                //将异步任务加入到集合🌿🌿🌿
+                completableFuturesList.add(priceCompletableFuture);
+
             });
         }
+
+        //多个异步任务执行-并行执行🌿🌿🌿
+        //将异步任务列表 completableFuturesList 转化为CompletableFuture数组，并传入 CompletableFuture.allOf 方法中。
+        //然后调用 join() 方法，等待所有的异步任务执行完毕。当所有异步任务都执行完毕时，join() 方法返回结果，程序继续往下执行。
+        CompletableFuture.allOf(completableFuturesList.toArray(new CompletableFuture[completableFuturesList.size()])).join();
 
         //判断错误信息中是否有数据 有数据:业务验证失败 结束
         if (!CollectionUtils.isEmpty(errorMessage)) {
