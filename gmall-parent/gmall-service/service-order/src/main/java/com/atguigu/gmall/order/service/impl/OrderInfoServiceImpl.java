@@ -290,9 +290,15 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
             //设置商品来源
             orderDetail.setSourceId(1L);
             orderDetail.setSourceType("MALL");
+
+            //6.订单中包含商品SkuID从购物车中删除
+            String cartKey = RedisConst.USER_KEY_PREFIX + userId + RedisConst.USER_CART_KEY_SUFFIX;
+            BoundHashOperations<String, String, CartInfo> hashOps = redisTemplate.boundHashOps(cartKey);
+            hashOps.delete(orderDetail.getSkuId().toString());
         }
         //批量保存订单明细
         orderDetailService.saveBatch(orderDetailList);
+
         //返回订单ID
         return orderInfo.getId();
     }
