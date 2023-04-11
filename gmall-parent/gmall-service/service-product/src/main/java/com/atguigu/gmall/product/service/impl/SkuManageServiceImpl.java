@@ -2,7 +2,9 @@ package com.atguigu.gmall.product.service.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.atguigu.gmall.common.cache.GmallCache;
+import com.atguigu.gmall.common.constant.MqConst;
 import com.atguigu.gmall.common.constant.RedisConst;
+import com.atguigu.gmall.common.service.RabbitService;
 import com.atguigu.gmall.product.mapper.SkuAttrValueMapper;
 import com.atguigu.gmall.product.mapper.SkuSaleAttrValueMapper;
 import com.atguigu.gmall.product.mapper.SpuSaleAttrMapper;
@@ -50,6 +52,9 @@ public class SkuManageServiceImpl implements SkuManageService {
 
     @Autowired
     private RedissonClient redissonClient;
+
+    @Autowired
+    private RabbitService rabbitService;
 
 
     //根据spuId 查询销售属性集合，创建SKU时候要用
@@ -129,23 +134,33 @@ public class SkuManageServiceImpl implements SkuManageService {
     }
 
 
-    //sku上架-目前先简单写一下，后期会修改
+    //sku上架-使用MQ优化🌿🌿🌿
     @Override
     public void onSale(Long skuId) {
+        //1.修改数据库中上架状态
         LambdaUpdateWrapper<SkuInfo> updateWrapper = new LambdaUpdateWrapper<>();
         updateWrapper.eq(SkuInfo::getId, skuId);
         updateWrapper.set(SkuInfo::getIsSale, 1);
         skuInfoService.update(updateWrapper);
+
+        //2.将来还需要同步将索引库ES的商品进行上架，需要构建商品缓存到Redis
+        //RabbitMQ 将这条消息推送到 RabbitMQ 队列中，由消费者进一步处理更新 Elasticsearch 和 Redis 缓存。🌿🍀🔍
+        rabbitService.sendMessage(MqConst.EXCHANGE_DIRECT_GOODS, MqConst.ROUTING_GOODS_UPPER, skuId);
     }
 
 
-    //sku下架-目前先简单写一下，后期会修改
+    //sku下架-使用MQ优化🌿🌿🌿
     @Override
     public void cancelSale(Long skuId) {
+        //1.修改数据库中下架状态
         LambdaUpdateWrapper<SkuInfo> updateWrapper = new LambdaUpdateWrapper<>();
         updateWrapper.eq(SkuInfo::getId, skuId);
         updateWrapper.set(SkuInfo::getIsSale, 0);
         skuInfoService.update(updateWrapper);
+
+        //2. 将来还需要同步将索引库ES的商品进行下架，需要删除商品缓存Redis
+        //RabbitMQ 将这条消息推送到 RabbitMQ 队列中，由消费者进一步处理更新 Elasticsearch 和 Redis 缓存。🌿🍀🔍
+        rabbitService.sendMessage(MqConst.EXCHANGE_DIRECT_GOODS, MqConst.ROUTING_GOODS_LOWER, skuId);
     }
 
 

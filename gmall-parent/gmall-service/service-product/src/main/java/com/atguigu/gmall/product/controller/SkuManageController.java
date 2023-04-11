@@ -69,7 +69,8 @@ public class SkuManageController {
     @GetMapping("/onSale/{skuId}")
     public Result onSale(@PathVariable("skuId") Long skuId){
         skuManageService.onSale(skuId);
-        listFeignClient.upperGoods(skuId);
+        //取消ES索引库操作，通过MQ消费队列来完成🌿🌿🌿
+        //listFeignClient.upperGoods(skuId);
         return Result.ok();
     }
 
@@ -78,7 +79,8 @@ public class SkuManageController {
     @GetMapping("/cancelSale/{skuId}")
     public Result cancelSale(@PathVariable("skuId") Long skuId){
         skuManageService.cancelSale(skuId);
-        listFeignClient.lowerGoods(skuId);
+        //取消ES索引库操作，通过MQ消费队列来完成🌿🌿🌿
+        //listFeignClient.lowerGoods(skuId);
         return Result.ok();
     }
 

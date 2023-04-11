@@ -116,7 +116,7 @@ public class MQProducerAckConfig implements RabbitTemplate.ConfirmCallback, Rabb
         //5.更新Redis中相关的重试次数
         gmallCorrelationData.setRetryCount(gmallCorrelationData.getRetryCount() + 1);
         redisTemplate.opsForValue().set(correlationData.getId(), JSON.toJSONString(gmallCorrelationData));
-        
+
         log.info("进行消息重发！");
     }
 
