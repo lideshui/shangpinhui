@@ -17,6 +17,7 @@ import com.atguigu.gmall.order.service.OrderInfoService;
 import com.atguigu.gmall.product.client.ProductFeignClient;
 import com.atguigu.gmall.user.client.UserFeignClient;
 import com.atguigu.gmall.user.model.UserAddress;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -321,6 +322,27 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
             return true;
         }
         return false;
+    }
+
+
+    /**
+     * 查询当前登录用户订单列表以及订单明细内容
+     *
+     * @param page
+     * @param limit
+     */
+    @Override
+    public IPage<OrderInfo> getOrderList(IPage<OrderInfo> iPage, String userId, String status) {
+        //1.获取操作订单持久层对象
+        OrderInfoMapper orderInfoMapper = this.getBaseMapper();
+
+        //2.调用自定义SQL查询
+        if (StringUtils.isBlank(status)) {
+            OrderStatus orderStatus = OrderStatus.UNPAID;
+            status = orderStatus.name();
+        }
+        iPage = orderInfoMapper.getOrderList(iPage, status, userId);
+        return iPage;
     }
 
 }

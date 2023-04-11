@@ -30,4 +30,12 @@ public class OrderController {
         //2.渲染页面
         return "/order/trade";
     }
+
+    /**
+     * 渲染订单列表页，不需要关系数据问题，页面加载后通过ajax获取
+     */
+    @GetMapping("/myOrder.html")
+    public String myOrderHtml() {
+        return "/order/myOrder";
+    }
 }

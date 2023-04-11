@@ -2,6 +2,7 @@ package com.atguigu.gmall.order.service;
 
 import com.atguigu.gmall.order.model.OrderInfo;
 import com.atguigu.gmall.product.model.BaseAttrInfo;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.springframework.stereotype.Service;
 
@@ -18,5 +19,8 @@ public interface OrderInfoService extends IService<OrderInfo> {
 
     //调用第三方仓库存储系统进行验证商品库存是否充足
     boolean checkStock(Long skuId, Integer skuNum);
+
+    //查询当前登录用户订单列表以及订单明细内容
+    IPage<OrderInfo> getOrderList(IPage<OrderInfo> iPage, String userId, String status);
 
 }
