@@ -1,9 +1,11 @@
 package com.atguigu.gmall.order.service.impl;
 
+import com.alibaba.cloud.commons.lang.StringUtils;
 import com.alibaba.nacos.client.naming.utils.CollectionUtils;
 import com.atguigu.gmall.cart.client.CartFeignClient;
 import com.atguigu.gmall.cart.model.CartInfo;
 import com.atguigu.gmall.common.constant.RedisConst;
+import com.atguigu.gmall.common.util.HttpClientUtil;
 import com.atguigu.gmall.enums.model.OrderStatus;
 import com.atguigu.gmall.enums.model.PaymentType;
 import com.atguigu.gmall.enums.model.ProcessStatus;
@@ -17,9 +19,13 @@ import com.atguigu.gmall.user.client.UserFeignClient;
 import com.atguigu.gmall.user.model.UserAddress;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.BoundHashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -43,6 +49,10 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
 
     @Autowired
     private OrderDetailService orderDetailService;
+
+    //仓库管理系统调用接口基础地址
+    @Value("${ware.url}")
+    private String wareUrl;
 
     /**
      * 汇总订单确认页面需要5个参数
@@ -157,12 +167,49 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         Long flag = (Long) redisTemplate.execute(redisScript, Arrays.asList(redisKey), tradeNo);
         if (flag.intValue() == 0) {
             //若提交的订单流水号没有在Redis中查询到，则抛异常
-            throw new RuntimeException("页面提交参数有误!");
+            throw new RuntimeException("请勿重复提交订单!");
         }
 
-        //2.todo 调用第三方库存系统(仓储服务)接口进行验证商品库存
+        //2.调用第三方库存系统(仓储服务)接口进行验证商品库存
+        //2.1 获取订单中订单详情中的商品列表
+        List<OrderDetail> orderDetailList = orderInfo.getOrderDetailList();
+        //创建错误信息存储数组
+        List<String> errorMessage = new ArrayList<>();
 
-        //3.todo 调用商品微服务获取商品价格,验证商品价格是否发生变化
+        //如果当前订单内的商品数量不为空，就开始验证库存和价格
+        if (!CollectionUtils.isEmpty(orderDetailList)) {
+            //遍历过程中判断每个商品库存以及价格是否合法
+            orderDetailList.stream().forEach(orderDetail -> {
+                //2.2调用第三方库存系统(仓储服务)接口进行验证商品库存
+                boolean hashStock = this.checkStock(orderDetail.getSkuId(), orderDetail.getSkuNum());
+                if (!hashStock) {
+                    //如果库存数量不足，则向错误信息集合添加错误信息
+                    errorMessage.add("商品:" + orderDetail.getSkuName() + "库存不足!");
+                }
+
+                //3. 调用商品微服务获取商品最新价格，验证商品价格是否发生变化
+                BigDecimal skuPrice = productFeignClient.getSkuPrice(orderDetail.getSkuId());
+                //如果商品价格发生了变化
+                if (orderDetail.getOrderPrice().compareTo(skuPrice) != 0) {
+                    //3.1 将Redis缓存中的购物车中商品价格改为最新
+                    String cartKey = RedisConst.USER_KEY_PREFIX + userId + RedisConst.USER_CART_KEY_SUFFIX;
+                    BoundHashOperations<String, String, CartInfo> hashOps = redisTemplate.boundHashOps(cartKey);
+                    //先查询，再修改
+                    CartInfo cartInfo = hashOps.get(orderDetail.getSkuId().toString());
+                    //设置最新价格
+                    cartInfo.setSkuPrice(skuPrice);
+                    //更新Redis中购物车中商品的数据
+                    hashOps.put(cartInfo.getSkuId().toString(), cartInfo);
+                    //向错误信息集合添加错误信息
+                    errorMessage.add("商品:" + orderDetail.getSkuName() + "价格已失效!");
+                }
+            });
+        }
+
+        //判断错误信息中是否有数据 有数据:业务验证失败 结束
+        if (!CollectionUtils.isEmpty(errorMessage)) {
+            throw new RuntimeException(errorMessage.stream().collect(Collectors.joining(",")));
+        }
 
         //4.保存订单信息
         //4.1 封装订单表中其他信息，有些信息在浏览器传递的OrderInfo中并没有，需要自己设置
@@ -180,8 +227,7 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         String outTradeNo = "ATGUIGU" + System.currentTimeMillis() + new Random().nextInt(1000);
         //设置唯一的订单号
         orderInfo.setOutTradeNo(outTradeNo);
-        //获取商品名称
-        List<OrderDetail> orderDetailList = orderInfo.getOrderDetailList();
+
 
         //循环每一条订单商品详情
         if (!CollectionUtils.isEmpty(orderDetailList)) {
@@ -223,6 +269,26 @@ public class OrderInfoServiceImpl extends ServiceImpl<OrderInfoMapper, OrderInfo
         orderDetailService.saveBatch(orderDetailList);
         //返回订单ID
         return orderInfo.getId();
+    }
+
+
+    /**
+     * 调用第三方仓库存储系统进行验证商品库存是否充足
+     *
+     * @param skuId
+     * @param skuNum
+     */
+    @Override
+    public boolean checkStock(Long skuId, Integer skuNum) {
+        //1.按照仓储系统提供http接口发起http请求
+        String url = wareUrl + "/hasStock?skuId=" + skuId + "&num=" + skuNum;
+        //如果仓储系统中有足够的 skuId 商品库存，则返回文本格式的字符串“1”；如果库存不足或者发生其他错误，则返回空字符串⚠️
+        String result = HttpClientUtil.doGet(url);
+        //判断库存是否足够，足够返回true，不足返回false⚠️
+        if (StringUtils.isNotBlank(result) && result.equals("1")) {
+            return true;
+        }
+        return false;
     }
 
 }

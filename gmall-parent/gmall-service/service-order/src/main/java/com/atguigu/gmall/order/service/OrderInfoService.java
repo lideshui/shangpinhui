@@ -16,4 +16,7 @@ public interface OrderInfoService extends IService<OrderInfo> {
     //在订单确认页面保存订单，响应成功保存的订单的ID
     Long submitOrder(OrderInfo orderInfo, String tradeNo);
 
+    //调用第三方仓库存储系统进行验证商品库存是否充足
+    boolean checkStock(Long skuId, Integer skuNum);
+
 }
