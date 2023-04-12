@@ -86,6 +86,16 @@ public class MQProducerAckConfig implements RabbitTemplate.ConfirmCallback, Rabb
         String str = (String) redisTemplate.opsForValue().get(redisKey);
         GmallCorrelationData gmallCorrelationData = JSON.parseObject(str, GmallCorrelationData.class);
 
+        /**
+         * 交换机暂存消息，消息无法及时路由到队列，会触发队列路由异常回调方法
+         * 解决方式一：如果是延迟消息，直接不处理，return即可
+         * 解决方式二：对重发方法进行修正-增加延迟消息重发逻辑-必然导致延迟消息多次发送
+         */
+        //========解决延迟队列和消息重发冲突问题-方案1⚠️⚠️⚠️========
+        if (gmallCorrelationData.isDelay()) {
+            return;
+        }
+
         //2.执行消息重发⚠️
         this.retryMessage(gmallCorrelationData);
     }
@@ -111,7 +121,18 @@ public class MQProducerAckConfig implements RabbitTemplate.ConfirmCallback, Rabb
         GmallCorrelationData gmallCorrelationData = JSON.parseObject(correlationDataStr, GmallCorrelationData.class);
 
         //4.重发消息
-        rabbitTemplate.convertAndSend(gmallCorrelationData.getExchange(), gmallCorrelationData.getRoutingKey(), gmallCorrelationData.getMessage(), gmallCorrelationData);
+        //========解决延迟队列和消息重发冲突问题-方案2⚠️⚠️⚠️========
+        //判断是否为延时消息
+        if (gmallCorrelationData.isDelay()) {
+            //结果：对于延迟性消息，依然需要设置消息延迟时间
+            rabbitTemplate.convertAndSend(gmallCorrelationData.getExchange(), gmallCorrelationData.getRoutingKey(), gmallCorrelationData.getMessage(), message -> {
+                message.getMessageProperties().setDelay(gmallCorrelationData.getDelayTime() * 1000);
+                return message;
+            }, gmallCorrelationData);
+        } else {
+            //如果是普通消息，立即执行重发方法
+            rabbitTemplate.convertAndSend(correlationData.getExchange(), correlationData.getRoutingKey(), correlationData.getMessage(), gmallCorrelationData);
+        }
 
         //5.更新Redis中相关的重试次数
         gmallCorrelationData.setRetryCount(gmallCorrelationData.getRetryCount() + 1);
